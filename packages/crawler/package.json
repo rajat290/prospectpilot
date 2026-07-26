@@ -1,0 +1,20 @@
+{
+  "name": "@prospectpilot/crawler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "tsx src/index.test.ts && tsx src/car-part.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prospectpilot/shared": "0.1.0",
+    "cheerio": "^1.0.0-rc.12",
+    "domhandler": "^5.0.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.3"
+  }
+}

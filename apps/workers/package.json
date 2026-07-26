@@ -1,0 +1,28 @@
+{
+  "name": "@prospectpilot/workers",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/worker.ts",
+    "build": "tsc --outDir dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.16.1",
+    "@prospectpilot/crawler": "0.1.0",
+    "@prospectpilot/enrichment": "0.1.0",
+    "@prospectpilot/opportunity": "0.1.0",
+    "@prospectpilot/outreach": "0.1.0",
+    "@prospectpilot/scoring": "0.1.0",
+    "@prospectpilot/shared": "0.1.0",
+    "bullmq": "^5.8.7",
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.4.5",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.3"
+  }
+}

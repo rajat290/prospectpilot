@@ -1,0 +1,369 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leadSources LeadSource[]
+  notes       Note[]
+}
+
+model LeadSource {
+  id                String       @id @default(cuid())
+  userId            String?
+  name              String?
+  url               String       @unique
+  sourceType        SourceType   @default(DIRECTORY)
+  status            SourceStatus @default(PENDING)
+  lastRunAt         DateTime?
+  recordCount       Int          @default(0)
+  errorMessage      String?
+  maxRecords        Int          @default(100)
+  requestDelayMs    Int          @default(750)
+  automationEnabled Boolean      @default(false)
+  scheduleCron      String       @default("0 8 * * *")
+  scheduleTimezone  String       @default("Asia/Kolkata")
+  nextRunAt         DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  user      User?     @relation(fields: [userId], references: [id])
+  companies Company[]
+  jobs      Job[]
+}
+
+model Company {
+  id                     String                 @id @default(cuid())
+  leadSourceId           String?
+  name                   String
+  normalizedName         String
+  websiteUrl             String?
+  phone                  String?
+  email                  String?
+  address                String?
+  city                   String?
+  region                 String?
+  country                String?
+  industry               String?
+  category               String?
+  description            String?
+  sourceUrl              String?
+  connectorId            String?
+  raw                    Json?
+  extractionScore        Int                    @default(0)
+  status                 CompanyStatus          @default(NEW)
+  websiteDiscoveryStatus WebsiteDiscoveryStatus @default(PENDING)
+  websiteDiscoveryError  String?
+  websiteDiscoveryAt     DateTime?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+
+  leadSource     LeadSource?     @relation(fields: [leadSourceId], references: [id])
+  website        Website?
+  contacts       Contact[]
+  socials        Social[]
+  technologies   Technology[]
+  audits         WebsiteAudit[]
+  opportunities  Opportunity[]
+  leadScore      LeadScore?
+  outreachDrafts OutreachDraft[]
+  crmItem        CrmItem?
+  notes          Note[]
+  activities     Activity[]
+
+  @@unique([leadSourceId, normalizedName])
+  @@index([normalizedName])
+  @@index([websiteUrl])
+}
+
+model Website {
+  id              String   @id @default(cuid())
+  companyId       String   @unique
+  url             String
+  finalUrl        String?
+  title           String?
+  metaDescription String?
+  discoveryScore  Int      @default(0)
+  isVerified      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+}
+
+model Contact {
+  id         String      @id @default(cuid())
+  companyId  String
+  type       ContactType
+  value      String
+  label      String?
+  sourceUrl  String?
+  confidence Int         @default(0)
+  createdAt  DateTime    @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, type, value])
+  @@index([value])
+}
+
+model Social {
+  id        String     @id @default(cuid())
+  companyId String
+  platform  SocialType
+  url       String
+  createdAt DateTime   @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, platform, url])
+}
+
+model Technology {
+  id         String   @id @default(cuid())
+  companyId  String
+  name       String
+  category   String?
+  confidence Int      @default(0)
+  evidence   String?
+  createdAt  DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, name])
+}
+
+model WebsiteAudit {
+  id                String      @id @default(cuid())
+  companyId         String
+  url               String
+  statusCode        Int?
+  hasHttps          Boolean     @default(false)
+  hasMobileViewport Boolean     @default(false)
+  hasContactForm    Boolean     @default(false)
+  hasLiveChat       Boolean     @default(false)
+  hasAnalytics      Boolean     @default(false)
+  hasCookieBanner   Boolean     @default(false)
+  brokenLinkCount   Int         @default(0)
+  loadStatus        AuditStatus @default(PENDING)
+  summary           String?
+  createdAt         DateTime    @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+}
+
+model Opportunity {
+  id                 String   @id @default(cuid())
+  companyId          String
+  category           String
+  title              String
+  reasoning          String
+  recommendedService String
+  confidence         Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+}
+
+model LeadScore {
+  id        String    @id @default(cuid())
+  companyId String    @unique
+  score     Int
+  band      ScoreBand
+  breakdown Json
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+}
+
+model OutreachDraft {
+  id              String   @id @default(cuid())
+  companyId       String
+  channel         String
+  subject         String?
+  body            String
+  personalization String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, channel])
+}
+
+model CrmItem {
+  id             String        @id @default(cuid())
+  companyId      String        @unique
+  status         PipelineStage @default(NEW)
+  priority       ScoreBand?
+  tags           String[]
+  nextReminderAt DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String?
+  body      String
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+  user    User?   @relation(fields: [userId], references: [id])
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  companyId String
+  type      String
+  summary   String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, createdAt])
+}
+
+model Job {
+  id           String    @id @default(cuid())
+  leadSourceId String?
+  type         JobType
+  status       JobStatus @default(QUEUED)
+  payload      Json
+  result       Json?
+  errorMessage String?
+  attempts     Int       @default(0)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  leadSource LeadSource? @relation(fields: [leadSourceId], references: [id])
+}
+
+model DailyReport {
+  id             String   @id @default(cuid())
+  reportDate     DateTime @unique
+  leadsFound     Int
+  qualifiedLeads Int
+  hotLeads       Int
+  emailsFound    Int
+  phonesFound    Int
+  failedJobs     Int
+  topOpportunity String?
+  bestLeadName   String?
+  bestLeadScore  Int?
+  createdAt      DateTime @default(now())
+}
+
+enum SourceType {
+  DIRECTORY
+  ASSOCIATION
+  MARKETPLACE
+  TRADE_SHOW
+  GOOGLE_MAPS
+  OTHER
+}
+
+enum SourceStatus {
+  PENDING
+  CRAWLING
+  ENRICHING
+  COMPLETE
+  FAILED
+}
+
+enum CompanyStatus {
+  NEW
+  EXTRACTED
+  ENRICHED
+  AUDITED
+  QUALIFIED
+  REJECTED
+}
+
+enum WebsiteDiscoveryStatus {
+  PENDING
+  DISCOVERED
+  NOT_FOUND
+  PROVIDER_MISSING
+  FAILED
+}
+
+enum ContactType {
+  EMAIL
+  PHONE
+  PERSON
+}
+
+enum SocialType {
+  LINKEDIN
+  TWITTER
+  FACEBOOK
+  INSTAGRAM
+  YOUTUBE
+  GITHUB
+  GOOGLE_BUSINESS
+  OTHER
+}
+
+enum AuditStatus {
+  PENDING
+  COMPLETE
+  FAILED
+}
+
+enum ScoreBand {
+  HOT
+  QUALIFIED
+  REVIEW
+  LOW
+}
+
+enum PipelineStage {
+  NEW
+  RESEARCH
+  QUALIFIED
+  OUTREACH_READY
+  CONTACTED
+  REPLIED
+  MEETING
+  PROPOSAL
+  WON
+  LOST
+  RETAINER
+}
+
+enum JobType {
+  CRAWL_SOURCE
+  DISCOVER_WEBSITE
+  EXTRACT_CONTACTS
+  AUDIT_WEBSITE
+  DETECT_TECH
+  ANALYZE_OPPORTUNITY
+  SCORE_LEAD
+  GENERATE_OUTREACH
+  DAILY_REPORT
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  COMPLETE
+  FAILED
+}
