@@ -8,7 +8,9 @@ export const JOB_NAMES = {
   dailyReport: "daily-report",
   sendCommunication: "send-communication",
   syncGmail: "sync-gmail",
-  renewGmailWatch: "renew-gmail-watch"
+  renewGmailWatch: "renew-gmail-watch",
+  processSequence: "process-sequence",
+  reconcileMailboxes: "reconcile-mailboxes"
 } as const;
 
 export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES];

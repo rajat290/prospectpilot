@@ -22,6 +22,7 @@
     "cleanup:contacts": "tsx prisma/cleanup-contacts.ts",
     "backfill:spine": "tsx prisma/backfill-lead-spine.ts",
     "seed:communications": "tsx prisma/seed-communications.ts",
+    "setup:communication-secrets": "tsx scripts/setup-communication-secrets.ts",
     "dev:all": "concurrently -n WEB,API,WORKER -c green,blue,yellow \"npm run dev\" \"npm run dev:api\" \"npm run dev:workers\""
   },
   "engines": {

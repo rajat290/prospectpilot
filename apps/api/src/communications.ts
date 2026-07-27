@@ -24,7 +24,7 @@ const gmail = new GmailAdapter({
 
 export async function registerCommunicationRoutes(app: FastifyInstance, prisma: PrismaClient) {
   app.get("/communications/status", async () => {
-    const [accounts, conversationCount, pendingApprovals, scheduled, suppressions] = await Promise.all([
+    const [accounts, conversationCount, pendingApprovals, scheduled, suppressions, unmatched, failed] = await Promise.all([
       prisma.channelConnection.findMany({
         orderBy: { updatedAt: "desc" },
         select: {
@@ -44,7 +44,9 @@ export async function registerCommunicationRoutes(app: FastifyInstance, prisma: 
       prisma.conversation.count(),
       prisma.approvalRequest.count({ where: { status: "PENDING" } }),
       prisma.scheduledMessage.count({ where: { status: { in: ["PENDING", "QUEUED"] } } }),
-      prisma.suppressionEntry.count({ where: { active: true } })
+      prisma.suppressionEntry.count({ where: { active: true } }),
+      prisma.inboundReview.count({ where: { status: "PENDING" } }),
+      prisma.message.count({ where: { status: { in: ["FAILED", "BOUNCED"] } } })
     ]);
     return {
       providers: {
@@ -56,8 +58,12 @@ export async function registerCommunicationRoutes(app: FastifyInstance, prisma: 
         outlook: { available: false },
         whatsapp: { available: false }
       },
+      attachments: {
+        signingConfigured: Boolean(env.attachmentSigningKey || env.communicationEncryptionKey),
+        storageRootConfigured: Boolean(process.env.ATTACHMENT_STORAGE_ROOT)
+      },
       accounts,
-      counts: { conversations: conversationCount, pendingApprovals, scheduled, suppressions }
+      counts: { conversations: conversationCount, pendingApprovals, scheduled, suppressions, unmatched, failed }
     };
   });
 
@@ -332,7 +338,10 @@ export async function registerCommunicationRoutes(app: FastifyInstance, prisma: 
 
   app.post("/messages/:id/submit", async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
-    const body = z.object({ scheduledAt: z.coerce.date().optional() }).parse(request.body ?? {});
+    const body = z.object({
+      scheduledAt: z.coerce.date().optional(),
+      recipientTimezone: z.string().min(1).max(80).default("UTC")
+    }).parse(request.body ?? {});
     const message = await prisma.message.findUnique({ where: { id }, include: { approval: true } });
     if (!message) return reply.code(404).send({ message: "Message not found." });
     if (message.approval?.status !== "APPROVED") return reply.code(409).send({ message: "Message needs approval before submission." });
@@ -341,8 +350,8 @@ export async function registerCommunicationRoutes(app: FastifyInstance, prisma: 
     if (body.scheduledAt) {
       await prisma.scheduledMessage.upsert({
         where: { messageId: id },
-        create: { messageId: id, dueAt: body.scheduledAt, queueJobId: queued.queueJobId, status: "QUEUED" },
-        update: { dueAt: body.scheduledAt, queueJobId: queued.queueJobId, status: "QUEUED", lastError: null }
+        create: { messageId: id, dueAt: body.scheduledAt, recipientTimezone: body.recipientTimezone, queueJobId: queued.queueJobId, status: "QUEUED" },
+        update: { dueAt: body.scheduledAt, recipientTimezone: body.recipientTimezone, queueJobId: queued.queueJobId, status: "QUEUED", lastError: null, cancelledAt: null }
       });
     }
     await prisma.message.update({
@@ -365,6 +374,14 @@ export async function registerCommunicationRoutes(app: FastifyInstance, prisma: 
       orderBy: { updatedAt: "desc" },
       include: {
         steps: { orderBy: { position: "asc" } },
+        enrollments: {
+          orderBy: { enrolledAt: "desc" },
+          take: 50,
+          include: {
+            company: { select: { id: true, name: true, trustStatus: true } },
+            contact: { select: { id: true, value: true, contactabilityState: true } }
+          }
+        },
         _count: { select: { enrollments: true } }
       }
     });
@@ -385,7 +402,10 @@ export async function registerCommunicationRoutes(app: FastifyInstance, prisma: 
 
   app.get("/approval-requests", async () => {
     return prisma.approvalRequest.findMany({
-      where: { status: { in: ["PENDING", "APPROVED"] } },
+      where: {
+        status: { in: ["PENDING", "APPROVED"] },
+        message: { status: { in: ["PENDING_APPROVAL", "APPROVED"] } }
+      },
       orderBy: { requestedAt: "asc" },
       include: {
         message: {

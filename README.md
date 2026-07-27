@@ -4,7 +4,7 @@ ProspectPilot turns public business directories into prioritized, outreach-ready
 
 ## Current Milestone
 
-The local operating cockpit now includes the completed **Lead Intelligence Spine** and the first **Unified Communication Hub** milestone:
+The local operating cockpit now includes the completed **Lead Intelligence Spine**, **Unified Communication Core**, and locally verified **Phase 9B Operations**:
 
 - Cross-source company identity fingerprints and duplicate matching
 - Field-level evidence ledger with origin URL, extraction method, confidence, and review state
@@ -19,6 +19,12 @@ The local operating cockpit now includes the completed **Lead Intelligence Spine
 - Approval-first Inbox and Lead 360 composer with exact contact/thread matching
 - Contacted and Replied CRM transitions recorded from real communication events
 - Demo communication fixtures that exercise replies, pending approvals, sequences, and suppression without sending email
+- Unmatched inbound review with candidate evidence and attach/create/ignore/spam actions
+- Safe attachment storage with MIME/size policy, filename sanitization, SHA-256 deduplication, scan state, and signed downloads
+- Timezone-aware schedule, reschedule, cancel, and failed-send retry controls
+- Delivery/bounce analytics with hard-bounce invalidation, suppression, pending-message cancellation, and sequence exit
+- Approval-gated sequence activation, enrollment, pause/resume/stop, due-step drafting, and reply/commercial exit rules
+- Twenty-minute Gmail history reconciliation in addition to optional Pub/Sub push sync
 
 The wider Phase 1-8 cockpit also includes:
 
@@ -46,6 +52,8 @@ GMAIL_REDIRECT_URI="http://localhost:4000/communications/oauth/gmail/callback"
 ```
 
 For automatic push sync, also configure a Gmail Pub/Sub topic and `GMAIL_WEBHOOK_TOKEN`. Without push configuration, the operator can still request mailbox sync from Communications. Open `/communications`, connect Gmail, then use Inbox or a lead's Conversations tab. Every new draft requires approval before it can enter the send queue.
+
+See [Communication Security Runbook](./docs/COMMUNICATION_SECURITY.md) for Gmail activation, key rotation, attachment security, reconciliation, and the exact live acceptance test.
 
 ## Official Website Discovery
 
@@ -96,6 +104,7 @@ The demo seed is idempotent and can be rerun without creating duplicate leads.
 7. Enable or pause daily automation and use Run now for a controlled manual crawl.
 8. Open Automation to inspect jobs, retry failures, and refresh the daily report.
 9. Open Inbox, inspect the seeded reply, then approve or reject the waiting demo draft in Communications.
+10. In Communications, review the unmatched sender, inspect the scheduled queue, approve the demo sequence enrollment, and download the scanned demo attachment.
 
 ## Real Source: Car-Part
 

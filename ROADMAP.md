@@ -1,6 +1,6 @@
 # ProspectPilot AI - Phase Wise Product Roadmap
 
-## Current Milestone Status - Communication Core And Gmail Command Center
+## Current Milestone Status - Phase 9B Operations Locally Complete
 
 Implemented and locally verified on July 27, 2026:
 
@@ -19,8 +19,14 @@ Implemented and locally verified on July 27, 2026:
 - Lead 360 Conversations tab and automatic CRM transitions for submitted mail and exact-match replies
 - Pre-send trust, contactability, suppression, mailbox, approval, and idempotency checks
 - Demo mailbox fixtures that can be tested safely without transmitting real email
+- Unmatched inbound review with explicit operator resolution
+- Safe local object storage, scan metadata, signed attachment downloads, and Gmail attachment ingestion
+- Schedule/reschedule/cancel/retry controls tied to BullMQ
+- Delivery and bounce analytics with hard-bounce suppression and sequence cancellation
+- Approval-first operational sequence enrollment and step generation
+- Periodic Gmail reconciliation alongside push/webhook sync
 
-Live Gmail end-to-end verification requires Google OAuth and Pub/Sub credentials. Outlook, WhatsApp Cloud API, assisted LinkedIn launch, attachment storage, and production provider delivery events remain later communication increments. SaaS tenancy is deliberately after the internal revenue workflow proves itself.
+The only uncompleted acceptance gate is external: a dedicated Gmail mailbox must be connected with user-provided Google OAuth credentials, then the real send, reply, sync, match, and CRM transition loop must be witnessed. Outlook, WhatsApp Cloud API, and assisted LinkedIn remain later increments. SaaS tenancy is deliberately after the internal revenue workflow proves itself.
 
 ## Previous Milestone - Phase 1-8 Local Operating Cockpit
 
@@ -885,12 +891,13 @@ Turn ProspectPilot into the daily outreach command center while preserving trust
 
 ### Phase 9B - Reliable Operator Workflow
 
-- Attachment object storage and malware/type validation
-- Draft editing, explicit scheduling UI, and cancel/reschedule controls
-- Delivery, bounce, open, and click events where the provider supports them
-- Manual review queue for unmatched inbound conversations
-- Contactability analytics and mailbox health alerts
-- Sequence enrollment, pause/resume, reply exit, limits, and weekend rules
+- [x] Attachment object storage and malware/type validation hook
+- [x] Draft attachments, explicit scheduling UI, and cancel/reschedule controls
+- [x] Sent, bounce, reply, and failure analytics available from current provider evidence
+- [x] Manual review queue for unmatched inbound conversations
+- [x] Contactability analytics and mailbox health alerts
+- [x] Sequence enrollment, approval, pause/resume/stop, reply exits, and commercial exit rules
+- [ ] Live Gmail Connect → Send → Reply → Sync acceptance test with user-provided credentials
 
 ### Phase 9C - Additional Channels
 

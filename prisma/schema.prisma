@@ -100,6 +100,7 @@ model Company {
   suppressions             SuppressionEntry[]
   communicationPreferences CommunicationPreference[]
   sequenceEnrollments      SequenceEnrollment[]
+  inboundReviews           InboundReview[]          @relation("InboundReviewCompany")
 
   @@unique([leadSourceId, normalizedName])
   @@index([normalizedName])
@@ -152,6 +153,7 @@ model Contact {
   suppressions             SuppressionEntry[]
   sequenceEnrollments      SequenceEnrollment[]
   communicationPreferences CommunicationPreference[]
+  inboundReviews           InboundReview[]          @relation("InboundReviewContact")
 
   @@unique([companyId, type, value])
   @@index([value])
@@ -309,6 +311,7 @@ model ChannelConnection {
   user          User?          @relation(fields: [userId], references: [id])
   conversations Conversation[]
   messages      Message[]
+  inboundReviews InboundReview[]
 
   @@unique([provider, emailAddress])
   @@index([status])
@@ -387,6 +390,8 @@ model Message {
   sentAt               DateTime?
   receivedAt           DateTime?
   metadata             Json?
+  bounceCategory       BounceCategory?
+  failureReason        String?
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 
@@ -401,6 +406,7 @@ model Message {
   events             MessageEvent[]
   approval           ApprovalRequest?
   schedule           ScheduledMessage?
+  inboundReview      InboundReview?
 
   @@unique([connectionId, providerMessageId])
   @@index([companyId, createdAt])
@@ -426,18 +432,25 @@ model MessageRecipient {
 }
 
 model Attachment {
-  id         String   @id @default(cuid())
-  messageId  String
-  providerId String?
-  fileName   String
-  mimeType   String
-  sizeBytes  Int
-  storageKey String?
-  contentId  String?
-  isInline   Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  id           String               @id @default(cuid())
+  messageId    String
+  providerId   String?
+  fileName     String
+  originalName String?
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String?
+  sha256       String?
+  scanStatus   AttachmentScanStatus @default(PENDING)
+  scanDetails  String?
+  contentId    String?
+  isInline     Boolean              @default(false)
+  createdAt    DateTime             @default(now())
 
   message Message @relation(fields: [messageId], references: [id])
+
+  @@index([sha256])
+  @@index([scanStatus, createdAt])
 }
 
 model MessageEvent {
@@ -473,16 +486,47 @@ model ScheduledMessage {
   id             String         @id @default(cuid())
   messageId      String         @unique
   dueAt          DateTime
+  recipientTimezone String       @default("UTC")
   queueJobId     String?
   status         ScheduleStatus @default(PENDING)
   validationHash String?
   lastError      String?
+  cancelledAt    DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
   message Message @relation(fields: [messageId], references: [id])
 
   @@index([status, dueAt])
+}
+
+model InboundReview {
+  id                    String              @id @default(cuid())
+  messageId             String              @unique
+  connectionId          String
+  senderAddress         String
+  senderName            String?
+  subject               String?
+  providerThreadId      String?
+  status                InboundReviewStatus @default(PENDING)
+  possibleMatches       Json?
+  matchConfidence       Int                 @default(0)
+  matchReason           String?
+  resolution            String?
+  resolvedCompanyId     String?
+  resolvedContactId     String?
+  resolvedAt            DateTime?
+  resolvedBy            String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  message           Message           @relation(fields: [messageId], references: [id])
+  connection        ChannelConnection @relation(fields: [connectionId], references: [id])
+  resolvedCompany   Company?          @relation("InboundReviewCompany", fields: [resolvedCompanyId], references: [id])
+  resolvedContact   Contact?          @relation("InboundReviewContact", fields: [resolvedContactId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([senderAddress])
 }
 
 model ApprovalRequest {
@@ -565,6 +609,9 @@ model SequenceEnrollment {
   currentStep    Int                      @default(0)
   nextStepAt     DateTime?
   exitReason     String?
+  approvedAt     DateTime?
+  approvedBy     String?
+  pausedAt       DateTime?
   enrolledAt     DateTime                 @default(now())
   completedAt    DateTime?
 
@@ -854,6 +901,8 @@ enum MessageStatus {
   SCHEDULED
   QUEUED
   SUBMITTED
+  PROVIDER_SUBMITTED
+  SENT
   DELIVERED
   OPENED
   CLICKED
@@ -861,6 +910,23 @@ enum MessageStatus {
   BOUNCED
   FAILED
   CANCELLED
+}
+
+enum BounceCategory {
+  HARD
+  SOFT
+  MAILBOX_FULL
+  DOMAIN_FAILURE
+  REJECTED
+  UNKNOWN
+}
+
+enum AttachmentScanStatus {
+  PENDING
+  CLEAN
+  QUARANTINED
+  BLOCKED
+  FAILED
 }
 
 enum RecipientType {
@@ -889,6 +955,8 @@ enum MessageEventType {
   SCHEDULED
   QUEUED
   SUBMITTED
+  PROVIDER_SUBMITTED
+  SENT
   DELIVERED
   OPENED
   CLICKED
@@ -962,6 +1030,8 @@ enum SequenceStatus {
 }
 
 enum SequenceEnrollmentStatus {
+  PENDING_APPROVAL
+  AWAITING_MESSAGE_APPROVAL
   ACTIVE
   PAUSED
   COMPLETED
@@ -970,6 +1040,15 @@ enum SequenceEnrollmentStatus {
   EXITED_UNSUBSCRIBE
   EXITED_REJECTED
   STOPPED
+}
+
+enum InboundReviewStatus {
+  PENDING
+  ATTACHED
+  NEW_CONTACT
+  NEW_LEAD
+  IGNORED
+  SPAM
 }
 
 enum ConsentStatus {
@@ -1045,6 +1124,8 @@ enum JobType {
   SEND_MESSAGE
   SYNC_MAILBOX
   RENEW_MAILBOX_WATCH
+  PROCESS_SEQUENCE
+  RECONCILE_MAILBOXES
 }
 
 enum JobStatus {

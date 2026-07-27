@@ -8,4 +8,5 @@ coverage/
 *.log
 playwright-report/
 test-results/
-
+.data/
+npm-audit.json

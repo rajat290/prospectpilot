@@ -1,4 +1,5 @@
 import { config } from "dotenv";
+import { fileURLToPath } from "node:url";
 
 config({ path: new URL("../../../.env", import.meta.url) });
 
@@ -13,5 +14,7 @@ export const env = {
   gmailClientSecret: process.env.GMAIL_CLIENT_SECRET ?? "",
   gmailRedirectUri: process.env.GMAIL_REDIRECT_URI ?? "http://localhost:4000/communications/oauth/gmail/callback",
   gmailPubsubTopic: process.env.GMAIL_PUBSUB_TOPIC ?? "",
-  gmailWebhookToken: process.env.GMAIL_WEBHOOK_TOKEN ?? ""
+  gmailWebhookToken: process.env.GMAIL_WEBHOOK_TOKEN ?? "",
+  attachmentSigningKey: process.env.ATTACHMENT_SIGNING_KEY ?? "",
+  attachmentStorageRoot: process.env.ATTACHMENT_STORAGE_ROOT ?? fileURLToPath(new URL("../../../.data/attachments", import.meta.url))
 };

@@ -74,10 +74,43 @@ export async function queueCommunicationSend(messageId: string, dueAt?: Date) {
     { messageId, trackedJobId: trackedJob.id },
     {
       delay,
-      jobId: `send:${messageId}`,
+      jobId: `send-${messageId}`,
       attempts: 3,
       backoff: { type: "exponential", delay: 10_000 },
       removeOnComplete: 100,
+      removeOnFail: 250
+    }
+  );
+  return { trackedJob, queueJobId: String(job.id) };
+}
+
+export async function cancelCommunicationSend(queueJobId?: string | null) {
+  if (!queueJobId) return false;
+  const job = await communicationQueue.getJob(queueJobId);
+  if (!job) return false;
+  const state = await job.getState();
+  if (state === "active") throw new Error("Message is already being processed and cannot be cancelled.");
+  await job.remove();
+  return true;
+}
+
+export async function queueSequenceProcessing(enrollmentId: string, dueAt = new Date()) {
+  const trackedJob = await prisma.job.create({
+    data: {
+      type: "PROCESS_SEQUENCE",
+      status: "QUEUED",
+      payload: { enrollmentId, dueAt: dueAt.toISOString() }
+    }
+  });
+  const job = await communicationQueue.add(
+    JOB_NAMES.processSequence,
+    { enrollmentId, trackedJobId: trackedJob.id },
+    {
+      delay: Math.max(0, dueAt.getTime() - Date.now()),
+      jobId: `sequence-${enrollmentId}-${dueAt.getTime()}`,
+      attempts: 3,
+      backoff: { type: "exponential", delay: 10_000 },
+      removeOnComplete: 200,
       removeOnFail: 250
     }
   );
@@ -92,7 +125,7 @@ export async function queueGmailSync(connectionId: string) {
     JOB_NAMES.syncGmail,
     { connectionId, trackedJobId: trackedJob.id },
     {
-      jobId: `gmail-sync:${connectionId}:${Date.now()}`,
+      jobId: `gmail-sync-${connectionId}-${Date.now()}`,
       attempts: 3,
       backoff: { type: "exponential", delay: 10_000 },
       removeOnComplete: 100,

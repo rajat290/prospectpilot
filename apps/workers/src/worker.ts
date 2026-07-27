@@ -25,6 +25,18 @@ const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
 const connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
 const producerConnection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
 const queue = new Queue("enrichment", { connection: producerConnection });
+const communicationQueue = new Queue("communications", { connection: producerConnection });
+
+await communicationQueue.add(
+  JOB_NAMES.reconcileMailboxes,
+  {},
+  {
+    repeat: { every: 20 * 60 * 1000 },
+    jobId: "mailbox-reconciliation",
+    removeOnComplete: 25,
+    removeOnFail: 50
+  }
+);
 
 new Worker(
   "enrichment",
@@ -71,7 +83,7 @@ new Worker(
 
 new Worker(
   "communications",
-  async (job) => processCommunicationJob(job, prisma),
+  async (job) => processCommunicationJob(job, prisma, communicationQueue),
   { connection, concurrency: 3 }
 );
 

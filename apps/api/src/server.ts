@@ -16,11 +16,13 @@ import { env } from "./env.js";
 import { buildCompanyWhere, companyInclude, leadQuerySchema } from "./lead-query.js";
 import { queueCompanyEnrichment, queueInitialSourcePipeline } from "./queues.js";
 import { registerCommunicationRoutes } from "./communications.js";
+import { registerPhase9BRoutes } from "./communications-phase9b.js";
 
 const prisma = new PrismaClient();
-const app = Fastify({ logger: true });
+const app = Fastify({ logger: true, bodyLimit: 11 * 1024 * 1024 });
 
 await app.register(cors, { origin: true });
+app.addContentTypeParser("application/octet-stream", { parseAs: "buffer" }, (_request, body, done) => done(null, body));
 await prisma.company.updateMany({
   where: {
     websiteUrl: { not: null },
@@ -446,6 +448,7 @@ app.get("/companies/export.csv", async (request, reply) => {
 });
 
 await registerCommunicationRoutes(app, prisma);
+await registerPhase9BRoutes(app, prisma);
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);

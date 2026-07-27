@@ -28,6 +28,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { apiUrl } from "../lib/api";
 import { LeadActions } from "./lead-actions";
+import { AttachmentLink } from "./attachment-link";
 import { MessageComposer } from "./message-composer";
 import { OutreachMessage } from "./outreach-message";
 import { Pill } from "./pill";
@@ -340,6 +341,7 @@ export function LeadWorkspace({ lead, templates = [], accounts = [] }: { lead: a
                     <div className={message.direction.toLowerCase()} key={message.id}>
                       <span>{message.direction === "INBOUND" ? "Prospect" : "You"} · {formatDate(message.receivedAt || message.sentAt || message.createdAt)}</span>
                       <p>{message.bodyText}</p>
+                      {message.attachments?.length ? <div className="message-attachments">{message.attachments.map((attachment: any) => <AttachmentLink attachment={attachment} key={attachment.id} />)}</div> : null}
                     </div>
                   ))}
                 </article>

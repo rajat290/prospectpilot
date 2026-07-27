@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Clock3, FileText, Send, X } from "lucide-react";
+import { CheckCircle2, Clock3, File, FileText, Paperclip, Send, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import { apiUrl } from "../lib/api";
@@ -24,6 +24,7 @@ export function MessageComposer({
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const [attachment, setAttachment] = useState<File | null>(null);
   const gmailAccounts = useMemo(() => accounts.filter((account) => account.provider === "GMAIL" && account.status === "CONNECTED"), [accounts]);
   const defaultAccount = gmailAccounts[0];
 
@@ -56,8 +57,27 @@ export function MessageComposer({
     const payload = await response.json();
     setBusy(false);
     if (!response.ok) return setNotice(payload.message || "Could not save draft");
+    if (attachment) {
+      setBusy(true);
+      const upload = await fetch(
+        `${apiUrl}/messages/${payload.id}/attachments?fileName=${encodeURIComponent(attachment.name)}&mimeType=${encodeURIComponent(attachment.type || "application/octet-stream")}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/octet-stream" },
+          body: attachment
+        }
+      );
+      const uploadPayload = await upload.json();
+      setBusy(false);
+      if (!upload.ok) {
+        setNotice(`Draft saved, but attachment was rejected: ${uploadPayload.message || uploadPayload.scanDetails || "security check failed"}`);
+        router.refresh();
+        return;
+      }
+    }
     setBody("");
-    setNotice("Draft saved and sent to the approval queue.");
+    setAttachment(null);
+    setNotice(`Draft saved${attachment ? " with a scanned attachment" : ""} and sent to the approval queue.`);
     router.refresh();
   }
 
@@ -76,6 +96,16 @@ export function MessageComposer({
       </div>
       <input className="composer-subject" aria-label="Email subject" required value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Subject" />
       <textarea className="composer-body" aria-label="Email body" required value={body} onChange={(event) => setBody(event.target.value)} placeholder="Write a clear, evidence-based message..." />
+      <label className="composer-attachment">
+        <Paperclip size={14} />
+        <span>{attachment ? attachment.name : "Attach PDF, Office file, image, CSV, or text · max 10 MB"}</span>
+        <input
+          type="file"
+          accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg,.webp,.csv,.txt"
+          onChange={(event) => setAttachment(event.target.files?.[0] || null)}
+        />
+        {attachment ? <File size={14} /> : null}
+      </label>
       <div className="composer-footer">
         <span><Clock3 size={13} /> Every draft requires human approval before queueing.</span>
         <button className="button primary" disabled={busy || !recipient.value} type="submit"><Send size={14} /> Save for approval</button>

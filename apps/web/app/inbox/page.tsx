@@ -1,5 +1,6 @@
 import { ArrowUpRight, Building2, Clock3, Inbox, Mail, MessageSquareReply, ShieldCheck } from "lucide-react";
 import { ContextHelp } from "../../components/context-help";
+import { AttachmentLink } from "../../components/attachment-link";
 import { MessageComposer } from "../../components/message-composer";
 import { Pill } from "../../components/pill";
 import { apiGet } from "../../lib/api";
@@ -84,6 +85,7 @@ export default async function InboxPage({ searchParams }: { searchParams: { conv
                       <span><Pill value={message.status} /><time>{formatDate(message.receivedAt || message.sentAt || message.createdAt)}</time></span>
                     </div>
                     <p>{message.bodyText}</p>
+                    {message.attachments?.length ? <div className="message-attachments">{message.attachments.map((attachment: any) => <AttachmentLink attachment={attachment} key={attachment.id} />)}</div> : null}
                     {message.events?.length ? <footer><Clock3 size={12} /> {message.events.at(-1)?.type.replaceAll("_", " ").toLowerCase()}</footer> : null}
                   </article>
                 ))}

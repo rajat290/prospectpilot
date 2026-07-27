@@ -1,4 +1,6 @@
 import { PrismaClient } from "@prisma/client";
+import { storeAttachment } from "@prospectpilot/communications";
+import { fileURLToPath } from "node:url";
 
 const prisma = new PrismaClient();
 
@@ -9,7 +11,7 @@ async function main() {
     where: { leadSourceId: demoSource.id },
     include: { contacts: true, opportunities: { take: 1 } },
     orderBy: { name: "asc" },
-    take: 4
+    take: 12
   });
   if (leads.length < 3) throw new Error("At least three demo leads are required.");
 
@@ -181,6 +183,14 @@ async function main() {
       riskFlags: ["DEMO_PROVIDER", `LEAD_${third.trustStatus}`]
     }
   });
+  const storedAttachment = await storeAttachment({
+    bytes: Buffer.from("ProspectPilot demo scope\n\nDiscovery, workflow mapping, implementation, testing, and handoff."),
+    fileName: "demo-project-scope.txt",
+    mimeType: "text/plain",
+    storageRoot: fileURLToPath(new URL("../.data/attachments", import.meta.url))
+  });
+  const existingAttachment = await prisma.attachment.findFirst({ where: { messageId: pendingMessage.id, sha256: storedAttachment.sha256 } });
+  if (!existingAttachment) await prisma.attachment.create({ data: { messageId: pendingMessage.id, ...storedAttachment } });
 
   let sequence = await prisma.sequence.findFirst({ where: { name: "Responsible four-touch introduction" } });
   if (!sequence) {
@@ -204,6 +214,126 @@ async function main() {
       }
     });
   }
+  await prisma.sequence.update({ where: { id: sequence.id }, data: { status: "ACTIVE" } });
+  const sequenceLead = leads.find((lead) => lead.name === "Northstar Auto Recyclers") || leads.find((lead) => lead.id !== first.id && lead.id !== second.id && lead.id !== third.id) || second;
+  const sequenceContact = primaryEmail(sequenceLead) || await ensureDemoEmail(sequenceLead.id, "sequence@demo-prospect.example");
+  const existingEnrollment = await prisma.sequenceEnrollment.findFirst({ where: { sequenceId: sequence.id, companyId: sequenceLead.id } });
+  if (!existingEnrollment) {
+    await prisma.sequenceEnrollment.create({
+      data: {
+        sequenceId: sequence.id,
+        companyId: sequenceLead.id,
+        contactId: sequenceContact.id,
+        status: "PENDING_APPROVAL"
+      }
+    });
+  } else {
+    const generatedMessages = await prisma.message.findMany({ where: { sequenceEnrollmentId: existingEnrollment.id }, select: { id: true } });
+    for (const generated of generatedMessages) {
+      await prisma.$transaction([
+        prisma.messageEvent.deleteMany({ where: { messageId: generated.id } }),
+        prisma.messageRecipient.deleteMany({ where: { messageId: generated.id } }),
+        prisma.attachment.deleteMany({ where: { messageId: generated.id } }),
+        prisma.approvalRequest.deleteMany({ where: { messageId: generated.id } }),
+        prisma.scheduledMessage.deleteMany({ where: { messageId: generated.id } })
+      ]);
+      await prisma.message.delete({ where: { id: generated.id } });
+    }
+    await prisma.sequenceEnrollment.update({
+      where: { id: existingEnrollment.id },
+      data: {
+        status: "PENDING_APPROVAL",
+        currentStep: 0,
+        nextStepAt: null,
+        exitReason: null,
+        approvedAt: null,
+        approvedBy: null,
+        pausedAt: null,
+        completedAt: null
+      }
+    });
+  }
+
+  const scheduledDueAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const scheduledMessage = await prisma.message.upsert({
+    where: { connectionId_providerMessageId: { connectionId: account.id, providerMessageId: `demo-scheduled-${second.id}` } },
+    create: {
+      conversationId: secondConversation.id,
+      companyId: second.id,
+      contactId: secondContact.id,
+      connectionId: account.id,
+      channel: "EMAIL",
+      direction: "OUTBOUND",
+      status: "SCHEDULED",
+      providerMessageId: `demo-scheduled-${second.id}`,
+      subject: `Follow-up: Operations idea for ${second.name}`,
+      bodyText: "A short scheduled follow-up awaiting its controlled delivery window.",
+      scheduledAt: scheduledDueAt,
+      recipients: { create: { type: "TO", address: secondContact.value, normalizedAddress: secondContact.value.toLowerCase(), contactId: secondContact.id } },
+      events: { create: [{ type: "APPROVED" }, { type: "SCHEDULED" }] },
+      approval: { create: { status: "APPROVED", reviewedAt: new Date(), reviewedBy: "Demo operator", riskFlags: ["DEMO_PROVIDER"], reason: "Demo scheduled message." } }
+    },
+    update: { status: "SCHEDULED", scheduledAt: scheduledDueAt, failureReason: null }
+  });
+  await prisma.scheduledMessage.upsert({
+    where: { messageId: scheduledMessage.id },
+    create: { messageId: scheduledMessage.id, dueAt: scheduledDueAt, recipientTimezone: "Asia/Kolkata", status: "PENDING" },
+    update: { dueAt: scheduledDueAt, recipientTimezone: "Asia/Kolkata", queueJobId: null, status: "PENDING", cancelledAt: null, lastError: null }
+  });
+
+  const unmatchedConversation = await prisma.conversation.upsert({
+    where: { connectionId_providerThreadId: { connectionId: account.id, providerThreadId: "demo-unmatched-thread" } },
+    create: {
+      connectionId: account.id,
+      channel: "EMAIL",
+      providerThreadId: "demo-unmatched-thread",
+      subject: "Referred by an exhibitor",
+      status: "NEEDS_REPLY",
+      latestMessageAt: hoursAgo(1),
+      unreadCount: 1,
+      participants: { create: { address: "hello@northwind-demo.example", normalizedAddress: "hello@northwind-demo.example", name: "Rhea Kapoor", role: "SENDER" } }
+    },
+    update: {}
+  });
+  const unmatchedMessage = await prisma.message.upsert({
+    where: { connectionId_providerMessageId: { connectionId: account.id, providerMessageId: "demo-unmatched-message" } },
+    create: {
+      conversationId: unmatchedConversation.id,
+      connectionId: account.id,
+      channel: "EMAIL",
+      direction: "INBOUND",
+      status: "REPLIED",
+      providerMessageId: "demo-unmatched-message",
+      providerThreadId: "demo-unmatched-thread",
+      subject: "Referred by an exhibitor",
+      bodyText: "A colleague mentioned your workflow automation work. Could you share how you usually scope an initial engagement?",
+      receivedAt: hoursAgo(1),
+      sentAt: hoursAgo(1),
+      recipients: {
+        create: [
+          { type: "FROM", address: "hello@northwind-demo.example", normalizedAddress: "hello@northwind-demo.example" },
+          { type: "TO", address: account.emailAddress, normalizedAddress: account.emailAddress }
+        ]
+      },
+      events: { create: [{ type: "SYNCED" }, { type: "REPLIED" }] }
+    },
+    update: {}
+  });
+  await prisma.inboundReview.upsert({
+    where: { messageId: unmatchedMessage.id },
+    create: {
+      messageId: unmatchedMessage.id,
+      connectionId: account.id,
+      senderAddress: "hello@northwind-demo.example",
+      senderName: "Rhea Kapoor",
+      subject: unmatchedMessage.subject,
+      providerThreadId: "demo-unmatched-thread",
+      possibleMatches: [{ companyId: first.id, companyName: first.name, confidence: 55, reason: "Sender domain resembles a known business signal; operator confirmation required." }],
+      matchConfidence: 55,
+      matchReason: "Domain similarity is not strong enough for automatic attachment."
+    },
+    update: { status: "PENDING", resolvedAt: null, resolvedBy: null, resolution: null, resolvedCompanyId: null, resolvedContactId: null }
+  });
 
   const suppressedLead = leads[3]!;
   const suppressedContact = primaryEmail(suppressedLead) || await ensureDemoEmail(suppressedLead.id, "blocked@demo-prospect.example");
@@ -223,8 +353,41 @@ async function main() {
       }
     });
   }
+  await prisma.contact.update({
+    where: { id: suppressedContact.id },
+    data: { contactabilityState: "INVALID", contactabilityUpdatedAt: new Date(), doNotContact: true, bounceCount: 1 }
+  });
+  const bounceConversation = await upsertConversation({
+    companyId: suppressedLead.id,
+    connectionId: account.id,
+    providerThreadId: `demo-bounce-${suppressedLead.id}`,
+    subject: `Delivery failed for ${suppressedLead.name}`,
+    status: "AWAITING_PROSPECT",
+    participantAddress: suppressedContact.value,
+    contactId: suppressedContact.id
+  });
+  await prisma.message.upsert({
+    where: { connectionId_providerMessageId: { connectionId: account.id, providerMessageId: `demo-bounce-message-${suppressedLead.id}` } },
+    create: {
+      conversationId: bounceConversation.id,
+      companyId: suppressedLead.id,
+      contactId: suppressedContact.id,
+      connectionId: account.id,
+      channel: "EMAIL",
+      direction: "OUTBOUND",
+      status: "BOUNCED",
+      providerMessageId: `demo-bounce-message-${suppressedLead.id}`,
+      subject: `Delivery failed for ${suppressedLead.name}`,
+      bodyText: "Demo message retained to exercise hard-bounce analytics and suppression.",
+      bounceCategory: "HARD",
+      failureReason: "Demo mailbox reported address not found.",
+      recipients: { create: { type: "TO", address: suppressedContact.value, normalizedAddress: suppressedContact.value.toLowerCase(), contactId: suppressedContact.id } },
+      events: { create: [{ type: "PROVIDER_SUBMITTED" }, { type: "BOUNCED", metadata: { demo: true } }] }
+    },
+    update: { status: "BOUNCED", bounceCategory: "HARD", failureReason: "Demo mailbox reported address not found." }
+  });
 
-  console.log(`Communication demo ready: ${await prisma.conversation.count()} conversations, ${await prisma.message.count()} messages, ${await prisma.approvalRequest.count({ where: { status: "PENDING" } })} pending approvals.`);
+  console.log(`Communication demo ready: ${await prisma.conversation.count()} conversations, ${await prisma.message.count()} messages, ${await prisma.approvalRequest.count({ where: { status: "PENDING" } })} pending approvals, ${await prisma.inboundReview.count({ where: { status: "PENDING" } })} unmatched replies.`);
 }
 
 async function upsertConversation(input: {

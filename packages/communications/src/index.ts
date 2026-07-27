@@ -11,6 +11,7 @@ export type ProviderMessageInput = {
   threadId?: string;
   inReplyTo?: string;
   references?: string[];
+  attachments?: Array<{ fileName: string; mimeType: string; contentBase64: string }>;
 };
 
 export type ProviderMessageResult = {
@@ -87,7 +88,9 @@ export function renderTemplate(template: string, variables: Record<string, strin
 }
 
 export function buildMimeMessage(input: ProviderMessageInput) {
-  const boundary = `prospectpilot_${cryptoRandomId()}`;
+  const alternativeBoundary = `prospectpilot_alt_${cryptoRandomId()}`;
+  const mixedBoundary = `prospectpilot_mix_${cryptoRandomId()}`;
+  const hasAttachments = Boolean(input.attachments?.length);
   const headers = [
     `From: ${sanitizeHeader(input.from)}`,
     `To: ${input.to.map(sanitizeHeader).join(", ")}`,
@@ -97,26 +100,42 @@ export function buildMimeMessage(input: ProviderMessageInput) {
     "MIME-Version: 1.0",
     input.inReplyTo ? `In-Reply-To: ${sanitizeHeader(input.inReplyTo)}` : "",
     input.references?.length ? `References: ${input.references.map(sanitizeHeader).join(" ")}` : "",
-    `Content-Type: multipart/alternative; boundary="${boundary}"`
+    `Content-Type: multipart/${hasAttachments ? "mixed" : "alternative"}; boundary="${hasAttachments ? mixedBoundary : alternativeBoundary}"`
   ].filter(Boolean);
-  const parts = [
-    `--${boundary}`,
+  const alternativeParts = [
+    `--${alternativeBoundary}`,
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: 8bit",
     "",
     normalizeLineEndings(input.text),
     input.html
       ? [
-          `--${boundary}`,
+          `--${alternativeBoundary}`,
           'Content-Type: text/html; charset="UTF-8"',
           "Content-Transfer-Encoding: 8bit",
           "",
           normalizeLineEndings(input.html)
         ].join("\r\n")
       : "",
-    `--${boundary}--`
+    `--${alternativeBoundary}--`
   ].filter(Boolean);
-  return [...headers, "", ...parts].join("\r\n");
+  if (!hasAttachments) return [...headers, "", ...alternativeParts].join("\r\n");
+  const mixedParts = [
+    `--${mixedBoundary}`,
+    `Content-Type: multipart/alternative; boundary="${alternativeBoundary}"`,
+    "",
+    ...alternativeParts,
+    ...(input.attachments ?? []).flatMap((attachment) => [
+      `--${mixedBoundary}`,
+      `Content-Type: ${sanitizeHeader(attachment.mimeType)}; name="${sanitizeFileNameHeader(attachment.fileName)}"`,
+      "Content-Transfer-Encoding: base64",
+      `Content-Disposition: attachment; filename="${sanitizeFileNameHeader(attachment.fileName)}"`,
+      "",
+      wrapBase64(attachment.contentBase64)
+    ]),
+    `--${mixedBoundary}--`
+  ];
+  return [...headers, "", ...mixedParts].join("\r\n");
 }
 
 export function encodeBase64Url(value: string) {
@@ -247,6 +266,13 @@ export class GmailAdapter implements CommunicationProvider {
     );
   }
 
+  async getAttachment(accessToken: string, messageId: string, attachmentId: string) {
+    return this.gmailRequest<{ data: string; size: number }>(
+      accessToken,
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`
+    );
+  }
+
   async listThreads(accessToken: string, query = "newer_than:30d", maxResults = 50) {
     const params = new URLSearchParams({ q: query, maxResults: String(maxResults) });
     return this.gmailRequest<{ threads?: Array<{ id: string; historyId?: string }>; nextPageToken?: string }>(
@@ -319,6 +345,14 @@ function normalizeLineEndings(value: string) {
   return value.replace(/\r?\n/g, "\r\n");
 }
 
+function sanitizeFileNameHeader(value: string) {
+  return value.replace(/[\r\n"\\]/g, "_").slice(0, 160);
+}
+
+function wrapBase64(value: string) {
+  return value.replace(/\s+/g, "").match(/.{1,76}/g)?.join("\r\n") ?? "";
+}
+
 function cryptoRandomId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -329,3 +363,4 @@ function parseEncryptionKey(value: string) {
   return key;
 }
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+export * from "./storage.js";
