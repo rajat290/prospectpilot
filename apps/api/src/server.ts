@@ -6,13 +6,16 @@ import {
   Prisma,
   PrismaClient,
   ScoreBand,
-  SourceStatus
+  SourceStatus,
+  VerificationStatus
 } from "@prisma/client";
+import { calculateLeadQuality } from "@prospectpilot/shared";
 import Fastify from "fastify";
 import { z } from "zod";
 import { env } from "./env.js";
 import { buildCompanyWhere, companyInclude, leadQuerySchema } from "./lead-query.js";
 import { queueCompanyEnrichment, queueInitialSourcePipeline } from "./queues.js";
+import { registerCommunicationRoutes } from "./communications.js";
 
 const prisma = new PrismaClient();
 const app = Fastify({ logger: true });
@@ -48,7 +51,8 @@ app.get("/sources", async () => {
     orderBy: { createdAt: "desc" },
     include: {
       _count: { select: { companies: true, jobs: true } },
-      jobs: { orderBy: { createdAt: "desc" }, take: 1 }
+      jobs: { orderBy: { createdAt: "desc" }, take: 1 },
+      runs: { orderBy: { startedAt: "desc" }, take: 10 }
     }
   });
 });
@@ -141,7 +145,19 @@ app.get("/companies/:id", async (request, reply) => {
       ...companyInclude,
       audits: { orderBy: { createdAt: "desc" }, take: 10 },
       activities: { orderBy: { createdAt: "desc" }, take: 50 },
-      notes: { orderBy: { createdAt: "desc" } }
+      notes: { orderBy: { createdAt: "desc" } },
+      evidence: { orderBy: [{ trustStatus: "asc" }, { confidence: "desc" }, { observedAt: "desc" }] },
+      qualityIssues: { orderBy: [{ status: "asc" }, { detectedAt: "desc" }] },
+      conversations: {
+        orderBy: { latestMessageAt: "desc" },
+        include: {
+          participants: true,
+          messages: {
+            orderBy: { createdAt: "asc" },
+            include: { recipients: true, attachments: true, events: { orderBy: { occurredAt: "asc" } }, approval: true, schedule: true }
+          }
+        }
+      }
     }
   });
   return company ?? reply.code(404).send({ message: "Company not found" });
@@ -173,6 +189,55 @@ app.post("/companies/:id/enrich", async (request, reply) => {
   if (!company) return reply.code(404).send({ message: "Company not found" });
   const job = await queueCompanyEnrichment(id);
   return reply.code(202).send(job);
+});
+
+app.patch("/companies/:id/verification", async (request, reply) => {
+  const { id } = z.object({ id: z.string() }).parse(request.params);
+  const body = z
+    .object({
+      trustStatus: z.nativeEnum(VerificationStatus),
+      reason: z.string().max(1000).optional()
+    })
+    .parse(request.body);
+  const company = await prisma.company.update({
+    where: { id },
+    data: {
+      trustStatus: body.trustStatus,
+      lastVerifiedAt: body.trustStatus === "VERIFIED" ? new Date() : undefined,
+      quarantinedAt: body.trustStatus === "REJECTED" ? new Date() : body.trustStatus === "VERIFIED" ? null : undefined,
+      quarantineReason: body.trustStatus === "REJECTED" ? body.reason || "Manually rejected" : body.trustStatus === "VERIFIED" ? null : undefined
+    }
+  });
+  await addActivity(id, "VERIFICATION_UPDATED", `Lead marked ${body.trustStatus.toLowerCase()}${body.reason ? `: ${body.reason}` : ""}`);
+  return reply.send(company);
+});
+
+app.patch("/evidence/:id", async (request, reply) => {
+  const { id } = z.object({ id: z.string() }).parse(request.params);
+  const body = z.object({ trustStatus: z.enum(["VERIFIED", "REJECTED"]) }).parse(request.body);
+  const evidence = await prisma.evidenceRecord.update({
+    where: { id },
+    data: { trustStatus: body.trustStatus, lastCheckedAt: new Date() }
+  });
+  await addActivity(
+    evidence.companyId,
+    "EVIDENCE_REVIEWED",
+    `${evidence.field} evidence marked ${body.trustStatus.toLowerCase()}`
+  );
+  await refreshLeadTrust(evidence.companyId);
+  return reply.send(evidence);
+});
+
+app.patch("/quality-issues/:id", async (request, reply) => {
+  const { id } = z.object({ id: z.string() }).parse(request.params);
+  const body = z.object({ status: z.enum(["RESOLVED", "IGNORED"]) }).parse(request.body);
+  const issue = await prisma.dataQualityIssue.update({
+    where: { id },
+    data: { status: body.status, resolvedAt: new Date() }
+  });
+  await addActivity(issue.companyId, "QUALITY_ISSUE_UPDATED", `${issue.title} marked ${body.status.toLowerCase()}`);
+  await refreshLeadTrust(issue.companyId);
+  return reply.send(issue);
 });
 
 app.get("/providers/status", async () => ({
@@ -325,6 +390,46 @@ app.get("/dashboard", async () => {
   };
 });
 
+app.get("/alerts", async () => {
+  const [criticalIssues, degradedSources, failedJobs, reminders] = await Promise.all([
+    prisma.dataQualityIssue.findMany({
+      where: { status: "OPEN", severity: "CRITICAL" },
+      orderBy: { detectedAt: "desc" },
+      take: 20,
+      include: { company: { select: { id: true, name: true } } }
+    }),
+    prisma.leadSource.findMany({
+      where: { OR: [{ connectorHealthScore: { lt: 60 } }, { status: "FAILED" }] },
+      orderBy: { updatedAt: "desc" },
+      take: 10,
+      select: { id: true, name: true, url: true, status: true, connectorHealthScore: true, errorMessage: true }
+    }),
+    prisma.job.findMany({
+      where: { status: "FAILED" },
+      orderBy: { updatedAt: "desc" },
+      take: 10,
+      select: { id: true, type: true, errorMessage: true, updatedAt: true }
+    }),
+    prisma.crmItem.findMany({
+      where: { nextReminderAt: { lte: new Date() } },
+      orderBy: { nextReminderAt: "asc" },
+      take: 20,
+      include: { company: { select: { id: true, name: true } } }
+    })
+  ]);
+  return { criticalIssues, degradedSources, failedJobs, reminders };
+});
+
+app.get("/quality/summary", async () => {
+  const [trust, openIssues, quarantined, average] = await Promise.all([
+    prisma.company.groupBy({ by: ["trustStatus"], _count: true }),
+    prisma.dataQualityIssue.groupBy({ by: ["severity"], where: { status: "OPEN" }, _count: true }),
+    prisma.company.count({ where: { quarantinedAt: { not: null } } }),
+    prisma.company.aggregate({ _avg: { overallConfidence: true, dataCompleteness: true } })
+  ]);
+  return { trust, openIssues, quarantined, average };
+});
+
 app.get("/companies/export.csv", async (request, reply) => {
   const query = leadQuerySchema.parse(request.query);
   const companies = await prisma.company.findMany({
@@ -339,6 +444,8 @@ app.get("/companies/export.csv", async (request, reply) => {
     .header("content-disposition", `attachment; filename="prospectpilot-leads-${new Date().toISOString().slice(0, 10)}.csv"`)
     .send(csv);
 });
+
+await registerCommunicationRoutes(app, prisma);
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
@@ -396,6 +503,60 @@ async function getExportCompany() {
 
 async function addActivity(companyId: string, type: string, summary: string) {
   return prisma.activity.create({ data: { companyId, type, summary } });
+}
+
+async function refreshLeadTrust(companyId: string) {
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    include: {
+      website: true,
+      contacts: true,
+      socials: true,
+      audits: { orderBy: { createdAt: "desc" }, take: 1 },
+      opportunities: { take: 1 },
+      sourceObservations: true,
+      qualityIssues: { where: { status: "OPEN" } },
+      evidence: { where: { trustStatus: "VERIFIED" } }
+    }
+  });
+  if (!company) return;
+  const quality = calculateLeadQuality({
+    name: company.name,
+    websiteUrl: company.websiteUrl || company.website?.url,
+    email: company.email,
+    phone: company.phone,
+    city: company.city,
+    region: company.region,
+    country: company.country,
+    industry: company.industry,
+    category: company.category,
+    extractionScore: company.extractionScore,
+    websiteConfidence: company.website?.discoveryScore,
+    contactConfidences: company.contacts.map((contact) => contact.confidence),
+    socialCount: company.socials.length,
+    sourceCount: Math.max(1, company.sourceObservations.length),
+    hasSuccessfulAudit: company.audits[0]?.loadStatus === "COMPLETE",
+    hasOpportunity: company.opportunities.length > 0
+  });
+  const criticalIssue = company.qualityIssues.find((issue) => issue.severity === "CRITICAL");
+  const trustStatus = criticalIssue
+    ? criticalIssue.code.includes("CONFLICT")
+      ? "CONFLICTING"
+      : "UNVERIFIED"
+    : company.evidence.length >= 2
+      ? "VERIFIED"
+      : quality.trustStatus;
+  await prisma.company.update({
+    where: { id: companyId },
+    data: {
+      overallConfidence: quality.overallConfidence,
+      dataCompleteness: quality.completeness,
+      trustStatus,
+      lastVerifiedAt: trustStatus === "VERIFIED" ? new Date() : company.lastVerifiedAt,
+      quarantinedAt: criticalIssue ? company.quarantinedAt ?? new Date() : null,
+      quarantineReason: criticalIssue?.description ?? null
+    }
+  });
 }
 
 async function generateDailyReport() {

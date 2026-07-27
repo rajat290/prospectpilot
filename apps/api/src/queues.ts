@@ -11,6 +11,7 @@ export const connection = new IORedis(env.redisUrl, {
 });
 
 export const enrichmentQueue = new Queue("enrichment", { connection });
+export const communicationQueue = new Queue("communications", { connection });
 
 export async function queueInitialSourcePipeline(leadSourceId: string, url: string) {
   const trackedJob = await prisma.job.create({
@@ -56,5 +57,47 @@ export async function queueCompanyEnrichment(companyId: string, type: JobType = 
     }
   );
 
+  return trackedJob;
+}
+
+export async function queueCommunicationSend(messageId: string, dueAt?: Date) {
+  const trackedJob = await prisma.job.create({
+    data: {
+      type: "SEND_MESSAGE",
+      status: "QUEUED",
+      payload: { messageId, dueAt: dueAt?.toISOString() }
+    }
+  });
+  const delay = dueAt ? Math.max(0, dueAt.getTime() - Date.now()) : 0;
+  const job = await communicationQueue.add(
+    JOB_NAMES.sendCommunication,
+    { messageId, trackedJobId: trackedJob.id },
+    {
+      delay,
+      jobId: `send:${messageId}`,
+      attempts: 3,
+      backoff: { type: "exponential", delay: 10_000 },
+      removeOnComplete: 100,
+      removeOnFail: 250
+    }
+  );
+  return { trackedJob, queueJobId: String(job.id) };
+}
+
+export async function queueGmailSync(connectionId: string) {
+  const trackedJob = await prisma.job.create({
+    data: { type: "SYNC_MAILBOX", status: "QUEUED", payload: { connectionId } }
+  });
+  await communicationQueue.add(
+    JOB_NAMES.syncGmail,
+    { connectionId, trackedJobId: trackedJob.id },
+    {
+      jobId: `gmail-sync:${connectionId}:${Date.now()}`,
+      attempts: 3,
+      backoff: { type: "exponential", delay: 10_000 },
+      removeOnComplete: 100,
+      removeOnFail: 250
+    }
+  );
   return trackedJob;
 }

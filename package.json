@@ -20,6 +20,8 @@
     "db:push": "prisma db push",
     "seed:demo": "tsx prisma/seed.ts",
     "cleanup:contacts": "tsx prisma/cleanup-contacts.ts",
+    "backfill:spine": "tsx prisma/backfill-lead-spine.ts",
+    "seed:communications": "tsx prisma/seed-communications.ts",
     "dev:all": "concurrently -n WEB,API,WORKER -c green,blue,yellow \"npm run dev\" \"npm run dev:api\" \"npm run dev:workers\""
   },
   "engines": {

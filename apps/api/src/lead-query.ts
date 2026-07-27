@@ -1,15 +1,23 @@
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
+const queryBoolean = z.preprocess(
+  (value) => value === "true" ? true : value === "false" ? false : value,
+  z.boolean()
+);
+
 export const leadQuerySchema = z.object({
   sourceId: z.string().optional(),
   connectorId: z.string().optional(),
   scoreBand: z.enum(["HOT", "QUALIFIED", "REVIEW", "LOW"]).optional(),
   minScore: z.coerce.number().min(0).max(100).optional(),
-  hasContact: z.coerce.boolean().optional(),
-  hasWebsite: z.coerce.boolean().optional(),
+  hasContact: queryBoolean.optional(),
+  hasWebsite: queryBoolean.optional(),
   status: z.string().optional(),
   pipelineStage: z.string().optional(),
+  trustStatus: z.enum(["VERIFIED", "PROBABLE", "UNVERIFIED", "CONFLICTING", "STALE", "REJECTED"]).optional(),
+  hasIssues: queryBoolean.optional(),
+  quarantined: queryBoolean.optional(),
   opportunity: z.string().optional(),
   q: z.string().optional(),
   limit: z.coerce.number().min(1).max(1000).default(100)
@@ -22,6 +30,8 @@ export function buildCompanyWhere(query: LeadQuery): Prisma.CompanyWhereInput {
     leadSourceId: query.sourceId,
     connectorId: query.connectorId,
     status: query.status as never,
+    trustStatus: query.trustStatus,
+    quarantinedAt: query.quarantined === undefined ? undefined : query.quarantined ? { not: null } : null,
     websiteUrl: query.hasWebsite === undefined ? undefined : query.hasWebsite ? { not: null } : null,
     OR: query.q
       ? [
@@ -33,6 +43,7 @@ export function buildCompanyWhere(query: LeadQuery): Prisma.CompanyWhereInput {
         ]
       : undefined,
     contacts: query.hasContact === undefined ? undefined : query.hasContact ? { some: {} } : { none: {} },
+    qualityIssues: query.hasIssues === undefined ? undefined : query.hasIssues ? { some: { status: "OPEN" } } : { none: { status: "OPEN" } },
     crmItem: query.pipelineStage ? { is: { status: query.pipelineStage as never } } : undefined,
     opportunities: query.opportunity
       ? { some: { category: { contains: query.opportunity, mode: "insensitive" } } }
@@ -60,5 +71,10 @@ export const companyInclude = {
   opportunities: { orderBy: { confidence: "desc" } },
   outreachDrafts: true,
   crmItem: true,
+  qualityIssues: { where: { status: "OPEN" }, orderBy: [{ severity: "desc" }, { detectedAt: "desc" }] },
+  sourceObservations: {
+    orderBy: { lastSeenAt: "desc" },
+    include: { leadSource: { select: { id: true, name: true, url: true, connectorHealthScore: true } } }
+  },
   notes: { orderBy: { createdAt: "desc" }, take: 3 }
 } satisfies Prisma.CompanyInclude;

@@ -59,13 +59,19 @@ export function SourceManager({ mode, source }: { mode: "create" | "row"; source
   }
 
   const automated = Boolean(source.automationEnabled);
+  const latestRun = source.runs?.[0];
   return (
-    <div className="list-row">
+    <div className="list-row source-health-row">
       <span className="icon-box"><Radar size={15} /></span>
       <div className="list-row-main">
         <div className="split-status"><strong>{source.name || new URL(source.url).hostname}</strong><Pill value={source.status} /></div>
         <p style={{ overflowWrap: "anywhere" }}>{source.url}</p>
         <p>{source._count.companies} companies | Cap {source.maxRecords} | {source.requestDelayMs}ms pacing<br />Last run {source.lastRunAt ? formatRunTime(source.lastRunAt) : "never"}{automated && source.nextRunAt ? ` | Next ${formatRunTime(source.nextRunAt)}` : ""}</p>
+        <div className="source-run-health">
+          <div><span style={{ width: `${source.connectorHealthScore}%` }} /></div>
+          <strong>{source.connectorHealthScore}% health</strong>
+          {latestRun ? <span>{latestRun.acceptedCount}/{latestRun.candidateCount} accepted | {latestRun.duplicateCount} duplicates | {latestRun.strategy}</span> : null}
+        </div>
         {source.errorMessage ? <p style={{ color: "#b7443f" }}>{source.errorMessage}</p> : null}
       </div>
       <div className="actions">

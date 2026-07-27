@@ -11,6 +11,7 @@
   "dependencies": {
     "@prisma/client": "^5.16.1",
     "@prospectpilot/crawler": "0.1.0",
+    "@prospectpilot/communications": "0.1.0",
     "@prospectpilot/enrichment": "0.1.0",
     "@prospectpilot/opportunity": "0.1.0",
     "@prospectpilot/outreach": "0.1.0",

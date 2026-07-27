@@ -156,10 +156,12 @@ export function extractContactsFromHtml(html: string, pageUrl: string): ContactE
     .map((url) => ({ platform: detectSocialPlatform(url), url }))
     .filter((social) => social.platform !== "other")
     .filter((social, index, list) => list.findIndex((item) => item.url === social.url) === index);
+  const people = extractPeople($, pageUrl);
 
   return {
     emails: emails.map((value) => ({ value, sourceUrl: pageUrl, confidence: 80 })),
     phones: phones.map((value) => ({ value, sourceUrl: pageUrl, confidence: 70 })),
+    people,
     socials
   };
 }
@@ -189,6 +191,62 @@ function detectSocialPlatform(url: string): string {
   if (lower.includes("github.com")) return "github";
   if (lower.includes("google.com/maps") || lower.includes("g.page")) return "google_business";
   return "other";
+}
+
+function extractPeople($: cheerio.CheerioAPI, pageUrl: string) {
+  const people: Array<{ value: string; label?: string; sourceUrl: string; confidence: number }> = [];
+  $("script[type='application/ld+json']").each((_, element) => {
+    const raw = $(element).text().trim();
+    if (!raw) return;
+    try {
+      walkJsonLd(JSON.parse(raw), (record) => {
+        const type = Array.isArray(record["@type"]) ? record["@type"] : [record["@type"]];
+        if (!type.some((value) => String(value).toLowerCase() === "person")) return;
+        const name = typeof record.name === "string" ? cleanPersonName(record.name) : undefined;
+        if (!name) return;
+        const role = typeof record.jobTitle === "string" ? record.jobTitle.trim() : undefined;
+        people.push({ value: name, label: role, sourceUrl: pageUrl, confidence: role ? 90 : 82 });
+      });
+    } catch {
+      // Invalid third-party JSON-LD is ignored instead of weakening the full extraction.
+    }
+  });
+
+  $("[itemtype*='Person'], [data-person-name], .team-member, .staff-member, .leadership-member").each((_, element) => {
+    const root = $(element);
+    const name = cleanPersonName(
+      root.attr("data-person-name") ||
+      root.find("[itemprop='name'], .name, h2, h3, h4").first().text()
+    );
+    if (!name) return;
+    const role = root.find("[itemprop='jobTitle'], .role, .title, .position").first().text().replace(/\s+/g, " ").trim() || undefined;
+    people.push({ value: name, label: role, sourceUrl: pageUrl, confidence: role ? 75 : 60 });
+  });
+
+  return people.filter(
+    (person, index, list) =>
+      list.findIndex((candidate) => candidate.value.toLowerCase() === person.value.toLowerCase()) === index
+  );
+}
+
+function walkJsonLd(value: unknown, visit: (record: Record<string, unknown>) => void) {
+  if (Array.isArray(value)) {
+    value.forEach((item) => walkJsonLd(item, visit));
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  const record = value as Record<string, unknown>;
+  visit(record);
+  Object.values(record).forEach((item) => walkJsonLd(item, visit));
+}
+
+function cleanPersonName(value: string | undefined) {
+  const name = value?.replace(/\s+/g, " ").trim();
+  if (!name || name.length < 3 || name.length > 80) return undefined;
+  if (!/^[\p{L}][\p{L}\s.'-]+$/u.test(name)) return undefined;
+  const parts = name.split(/\s+/);
+  if (parts.length < 2 || parts.length > 6) return undefined;
+  return name;
 }
 
 function normalize(value: string): string {

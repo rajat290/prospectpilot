@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { BarChart3, Bot, BriefcaseBusiness, CircleHelp, Database, Radar, Settings2 } from "lucide-react";
+import { BarChart3, Bot, BriefcaseBusiness, CircleHelp, Database, Mail, MessagesSquare, Radar, Settings2, ShieldCheck } from "lucide-react";
+import { NotificationCenter } from "../components/notification-center";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,11 +24,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav className="nav-list" aria-label="Main navigation">
               <NavItem href="/" label="Overview" icon={<BarChart3 size={18} />} />
               <NavItem href="/leads" label="Lead database" icon={<Database size={18} />} />
+              <NavItem href="/quality" label="Data quality" icon={<ShieldCheck size={18} />} />
+              <NavItem href="/inbox" label="Inbox" icon={<Mail size={18} />} />
+              <NavItem href="/communications" label="Communications" icon={<MessagesSquare size={18} />} />
               <NavItem href="/pipeline" label="Deal pipeline" icon={<BriefcaseBusiness size={18} />} />
               <NavItem href="/sources" label="Sources" icon={<Radar size={18} />} />
               <NavItem href="/automation" label="Automation" icon={<Bot size={18} />} />
               <NavItem href="/guide" label="Product guide" icon={<CircleHelp size={18} />} />
             </nav>
+            <NotificationCenter />
             <div className="sidebar-footer">
               <Settings2 size={16} />
               <span>Internal workspace</span>

@@ -55,3 +55,18 @@ test("rejects analytics IDs and IP addresses while keeping public phones", () =>
   );
   assert.deepEqual(result.phones.map((phone) => phone.value), ["804-746-5251", "+1-312-621-1950"]);
 });
+
+test("extracts decision makers only from explicit structured person evidence", () => {
+  const result = extractContactsFromHtml(
+    `<script type="application/ld+json">
+      {"@context":"https://schema.org","@type":"Person","name":"Asha Mehta","jobTitle":"Founder"}
+    </script>
+    <section class="team-member"><h3>Vikram Rao</h3><p class="role">Operations Director</p></section>
+    <p>Generic sentence mentioning Random Visitor should not become a person.</p>`,
+    "https://example.com/team"
+  );
+  assert.deepEqual(
+    result.people.map((person) => [person.value, person.label]),
+    [["Asha Mehta", "Founder"], ["Vikram Rao", "Operations Director"]]
+  );
+});

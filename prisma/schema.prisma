@@ -14,32 +14,37 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  leadSources LeadSource[]
-  notes       Note[]
+  leadSources        LeadSource[]
+  notes              Note[]
+  channelConnections ChannelConnection[]
 }
 
 model LeadSource {
-  id                String       @id @default(cuid())
-  userId            String?
-  name              String?
-  url               String       @unique
-  sourceType        SourceType   @default(DIRECTORY)
-  status            SourceStatus @default(PENDING)
-  lastRunAt         DateTime?
-  recordCount       Int          @default(0)
-  errorMessage      String?
-  maxRecords        Int          @default(100)
-  requestDelayMs    Int          @default(750)
-  automationEnabled Boolean      @default(false)
-  scheduleCron      String       @default("0 8 * * *")
-  scheduleTimezone  String       @default("Asia/Kolkata")
-  nextRunAt         DateTime?
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  id                   String       @id @default(cuid())
+  userId               String?
+  name                 String?
+  url                  String       @unique
+  sourceType           SourceType   @default(DIRECTORY)
+  status               SourceStatus @default(PENDING)
+  lastRunAt            DateTime?
+  recordCount          Int          @default(0)
+  errorMessage         String?
+  maxRecords           Int          @default(100)
+  requestDelayMs       Int          @default(750)
+  automationEnabled    Boolean      @default(false)
+  scheduleCron         String       @default("0 8 * * *")
+  scheduleTimezone     String       @default("Asia/Kolkata")
+  nextRunAt            DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  connectorHealthScore Int          @default(0)
+  lastSuccessfulRunAt  DateTime?
 
-  user      User?     @relation(fields: [userId], references: [id])
-  companies Company[]
-  jobs      Job[]
+  user         User?                      @relation(fields: [userId], references: [id])
+  companies    Company[]
+  observations CompanySourceObservation[]
+  runs         ConnectorRun[]
+  jobs         Job[]
 }
 
 model Company {
@@ -61,6 +66,13 @@ model Company {
   connectorId            String?
   raw                    Json?
   extractionScore        Int                    @default(0)
+  identityKey            String?
+  trustStatus            VerificationStatus     @default(UNVERIFIED)
+  overallConfidence      Int                    @default(0)
+  dataCompleteness       Int                    @default(0)
+  lastVerifiedAt         DateTime?
+  quarantinedAt          DateTime?
+  quarantineReason       String?
   status                 CompanyStatus          @default(NEW)
   websiteDiscoveryStatus WebsiteDiscoveryStatus @default(PENDING)
   websiteDiscoveryError  String?
@@ -68,61 +80,94 @@ model Company {
   createdAt              DateTime               @default(now())
   updatedAt              DateTime               @updatedAt
 
-  leadSource     LeadSource?     @relation(fields: [leadSourceId], references: [id])
-  website        Website?
-  contacts       Contact[]
-  socials        Social[]
-  technologies   Technology[]
-  audits         WebsiteAudit[]
-  opportunities  Opportunity[]
-  leadScore      LeadScore?
-  outreachDrafts OutreachDraft[]
-  crmItem        CrmItem?
-  notes          Note[]
-  activities     Activity[]
+  leadSource               LeadSource?                @relation(fields: [leadSourceId], references: [id])
+  website                  Website?
+  contacts                 Contact[]
+  socials                  Social[]
+  technologies             Technology[]
+  audits                   WebsiteAudit[]
+  opportunities            Opportunity[]
+  leadScore                LeadScore?
+  outreachDrafts           OutreachDraft[]
+  crmItem                  CrmItem?
+  notes                    Note[]
+  activities               Activity[]
+  evidence                 EvidenceRecord[]
+  qualityIssues            DataQualityIssue[]
+  sourceObservations       CompanySourceObservation[]
+  conversations            Conversation[]
+  messages                 Message[]
+  suppressions             SuppressionEntry[]
+  communicationPreferences CommunicationPreference[]
+  sequenceEnrollments      SequenceEnrollment[]
 
   @@unique([leadSourceId, normalizedName])
   @@index([normalizedName])
+  @@index([identityKey])
+  @@index([trustStatus])
   @@index([websiteUrl])
 }
 
 model Website {
-  id              String   @id @default(cuid())
-  companyId       String   @unique
+  id              String             @id @default(cuid())
+  companyId       String             @unique
   url             String
   finalUrl        String?
   title           String?
   metaDescription String?
-  discoveryScore  Int      @default(0)
-  isVerified      Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  discoveryScore  Int                @default(0)
+  isVerified      Boolean            @default(false)
+  trustStatus     VerificationStatus @default(UNVERIFIED)
+  sourceUrl       String?
+  lastVerifiedAt  DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @default(now()) @updatedAt
 
-  company Company @relation(fields: [companyId], references: [id])
+  company                 Company                   @relation(fields: [companyId], references: [id])
 }
 
 model Contact {
-  id         String      @id @default(cuid())
-  companyId  String
-  type       ContactType
-  value      String
-  label      String?
-  sourceUrl  String?
-  confidence Int         @default(0)
-  createdAt  DateTime    @default(now())
+  id                      String              @id @default(cuid())
+  companyId               String
+  type                    ContactType
+  value                   String
+  label                   String?
+  sourceUrl               String?
+  confidence              Int                 @default(0)
+  normalizedValue         String?
+  trustStatus             VerificationStatus  @default(UNVERIFIED)
+  isPrimary               Boolean             @default(false)
+  lastVerifiedAt          DateTime?
+  contactabilityState     ContactabilityState @default(UNKNOWN)
+  contactabilityUpdatedAt DateTime?
+  doNotContact            Boolean             @default(false)
+  bounceCount             Int                 @default(0)
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @default(now()) @updatedAt
 
-  company Company @relation(fields: [companyId], references: [id])
+  company                  Company                   @relation(fields: [companyId], references: [id])
+  conversationParticipants ConversationParticipant[]
+  messages                 Message[]
+  messageRecipients        MessageRecipient[]
+  suppressions             SuppressionEntry[]
+  sequenceEnrollments      SequenceEnrollment[]
+  communicationPreferences CommunicationPreference[]
 
   @@unique([companyId, type, value])
   @@index([value])
 }
 
 model Social {
-  id        String     @id @default(cuid())
-  companyId String
-  platform  SocialType
-  url       String
-  createdAt DateTime   @default(now())
+  id             String             @id @default(cuid())
+  companyId      String
+  platform       SocialType
+  url            String
+  sourceUrl      String?
+  confidence     Int                @default(0)
+  trustStatus    VerificationStatus @default(UNVERIFIED)
+  lastVerifiedAt DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @default(now()) @updatedAt
 
   company Company @relation(fields: [companyId], references: [id])
 
@@ -239,6 +284,421 @@ model Activity {
   @@index([companyId, createdAt])
 }
 
+model ChannelConnection {
+  id                    String                @id @default(cuid())
+  userId                String?
+  provider              CommunicationProvider
+  channel               CommunicationChannel
+  emailAddress          String
+  displayName           String?
+  providerAccountId     String?
+  accessTokenEncrypted  String?               @db.Text
+  refreshTokenEncrypted String?               @db.Text
+  accessTokenExpiresAt  DateTime?
+  grantedScopes         String[]
+  status                ConnectionStatus      @default(PENDING)
+  syncCursor            String?
+  watchExpirationAt     DateTime?
+  lastSyncedAt          DateTime?
+  lastError             String?
+  signature             String?               @db.Text
+  settings              Json?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  user          User?          @relation(fields: [userId], references: [id])
+  conversations Conversation[]
+  messages      Message[]
+
+  @@unique([provider, emailAddress])
+  @@index([status])
+}
+
+model Conversation {
+  id                       String               @id @default(cuid())
+  companyId                String?
+  connectionId             String?
+  channel                  CommunicationChannel
+  providerThreadId         String?
+  subject                  String?
+  status                   ConversationStatus   @default(OPEN)
+  latestMessageAt          DateTime?
+  unreadCount              Int                  @default(0)
+  aiClassification         String?
+  classificationConfidence Int?
+  summary                  String?              @db.Text
+  nextAction               String?
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+
+  company      Company?                  @relation(fields: [companyId], references: [id])
+  connection   ChannelConnection?        @relation(fields: [connectionId], references: [id])
+  participants ConversationParticipant[]
+  messages     Message[]
+  enrollments  SequenceEnrollment[]
+
+  @@unique([connectionId, providerThreadId])
+  @@index([companyId, latestMessageAt])
+  @@index([status, latestMessageAt])
+}
+
+model ConversationParticipant {
+  id                String          @id @default(cuid())
+  conversationId    String
+  contactId         String?
+  name              String?
+  address           String
+  normalizedAddress String
+  role              ParticipantRole
+  createdAt         DateTime        @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  contact      Contact?     @relation(fields: [contactId], references: [id])
+
+  @@unique([conversationId, normalizedAddress, role])
+  @@index([normalizedAddress])
+}
+
+model Message {
+  id                   String               @id @default(cuid())
+  conversationId       String
+  companyId            String?
+  contactId            String?
+  connectionId         String?
+  sequenceEnrollmentId String?
+  sequenceStepId       String?
+  channel              CommunicationChannel
+  direction            MessageDirection
+  status               MessageStatus        @default(DRAFT)
+  providerMessageId    String?
+  providerThreadId     String?
+  internetMessageId    String?
+  inReplyTo            String?
+  references           String[]
+  idempotencyKey       String?              @unique
+  subject              String?
+  bodyText             String               @db.Text
+  bodyHtml             String?              @db.Text
+  scheduledAt          DateTime?
+  submittedAt          DateTime?
+  deliveredAt          DateTime?
+  openedAt             DateTime?
+  repliedAt            DateTime?
+  sentAt               DateTime?
+  receivedAt           DateTime?
+  metadata             Json?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  conversation       Conversation        @relation(fields: [conversationId], references: [id])
+  company            Company?            @relation(fields: [companyId], references: [id])
+  contact            Contact?            @relation(fields: [contactId], references: [id])
+  connection         ChannelConnection?  @relation(fields: [connectionId], references: [id])
+  sequenceEnrollment SequenceEnrollment? @relation(fields: [sequenceEnrollmentId], references: [id])
+  sequenceStep       SequenceStep?       @relation(fields: [sequenceStepId], references: [id])
+  recipients         MessageRecipient[]
+  attachments        Attachment[]
+  events             MessageEvent[]
+  approval           ApprovalRequest?
+  schedule           ScheduledMessage?
+
+  @@unique([connectionId, providerMessageId])
+  @@index([companyId, createdAt])
+  @@index([conversationId, createdAt])
+  @@index([status, scheduledAt])
+}
+
+model MessageRecipient {
+  id                String              @id @default(cuid())
+  messageId         String
+  contactId         String?
+  type              RecipientType
+  address           String
+  normalizedAddress String
+  contactability    ContactabilityState @default(UNKNOWN)
+  createdAt         DateTime            @default(now())
+
+  message   Message  @relation(fields: [messageId], references: [id])
+  contact   Contact? @relation(fields: [contactId], references: [id])
+
+  @@unique([messageId, type, normalizedAddress])
+  @@index([normalizedAddress])
+}
+
+model Attachment {
+  id         String   @id @default(cuid())
+  messageId  String
+  providerId String?
+  fileName   String
+  mimeType   String
+  sizeBytes  Int
+  storageKey String?
+  contentId  String?
+  isInline   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id])
+}
+
+model MessageEvent {
+  id              String           @id @default(cuid())
+  messageId       String
+  type            MessageEventType
+  providerEventId String?
+  occurredAt      DateTime         @default(now())
+  metadata        Json?
+  createdAt       DateTime         @default(now())
+
+  message Message @relation(fields: [messageId], references: [id])
+
+  @@unique([messageId, providerEventId])
+  @@index([messageId, occurredAt])
+}
+
+model MessageTemplate {
+  id           String               @id @default(cuid())
+  name         String
+  category     TemplateCategory
+  channel      CommunicationChannel
+  subject      String?
+  body         String               @db.Text
+  variables    String[]
+  approvalMode ApprovalMode         @default(REQUIRED)
+  isActive     Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+}
+
+model ScheduledMessage {
+  id             String         @id @default(cuid())
+  messageId      String         @unique
+  dueAt          DateTime
+  queueJobId     String?
+  status         ScheduleStatus @default(PENDING)
+  validationHash String?
+  lastError      String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  message Message @relation(fields: [messageId], references: [id])
+
+  @@index([status, dueAt])
+}
+
+model ApprovalRequest {
+  id          String         @id @default(cuid())
+  messageId   String         @unique
+  status      ApprovalStatus @default(PENDING)
+  reason      String?
+  riskFlags   String[]
+  requestedAt DateTime       @default(now())
+  reviewedAt  DateTime?
+  reviewedBy  String?
+  reviewNote  String?
+
+  message Message @relation(fields: [messageId], references: [id])
+
+  @@index([status, requestedAt])
+}
+
+model SuppressionEntry {
+  id                    String               @id @default(cuid())
+  channel               CommunicationChannel
+  scope                 SuppressionScope
+  normalizedDestination String?
+  companyId             String?
+  contactId             String?
+  domain                String?
+  reason                SuppressionReason
+  details               String?
+  active                Boolean              @default(true)
+  createdAt             DateTime             @default(now())
+  revokedAt             DateTime?
+
+  company   Company? @relation(fields: [companyId], references: [id])
+  contact   Contact? @relation(fields: [contactId], references: [id])
+
+  @@index([channel, normalizedDestination, active])
+  @@index([companyId, active])
+  @@index([domain, active])
+}
+
+model Sequence {
+  id             String               @id @default(cuid())
+  name           String
+  channel        CommunicationChannel
+  status         SequenceStatus       @default(DRAFT)
+  approvalMode   ApprovalMode         @default(REQUIRED)
+  dailyLimit     Int                  @default(25)
+  perDomainLimit Int                  @default(3)
+  skipWeekends   Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  steps       SequenceStep[]
+  enrollments SequenceEnrollment[]
+}
+
+model SequenceStep {
+  id         String   @id @default(cuid())
+  sequenceId String
+  position   Int
+  delayHours Int
+  subject    String?
+  body       String   @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  sequence Sequence  @relation(fields: [sequenceId], references: [id])
+  messages Message[]
+
+  @@unique([sequenceId, position])
+}
+
+model SequenceEnrollment {
+  id             String                   @id @default(cuid())
+  sequenceId     String
+  companyId      String
+  contactId      String?
+  conversationId String?
+  status         SequenceEnrollmentStatus @default(ACTIVE)
+  currentStep    Int                      @default(0)
+  nextStepAt     DateTime?
+  exitReason     String?
+  enrolledAt     DateTime                 @default(now())
+  completedAt    DateTime?
+
+  sequence     Sequence      @relation(fields: [sequenceId], references: [id])
+  company      Company       @relation(fields: [companyId], references: [id])
+  contact      Contact?      @relation(fields: [contactId], references: [id])
+  conversation Conversation? @relation(fields: [conversationId], references: [id])
+  messages     Message[]
+
+  @@index([status, nextStepAt])
+  @@index([companyId, status])
+}
+
+model WebhookEvent {
+  id          String                @id @default(cuid())
+  provider    CommunicationProvider
+  externalId  String
+  eventType   String
+  payload     Json
+  status      WebhookStatus         @default(RECEIVED)
+  receivedAt  DateTime              @default(now())
+  processedAt DateTime?
+  error       String?
+
+  @@unique([provider, externalId])
+  @@index([status, receivedAt])
+}
+
+model CommunicationPreference {
+  id             String               @id @default(cuid())
+  companyId      String?
+  contactId      String?
+  channel        CommunicationChannel
+  contactability ContactabilityState  @default(UNKNOWN)
+  consentStatus  ConsentStatus        @default(UNKNOWN)
+  source         String?
+  updatedAt      DateTime             @updatedAt
+  createdAt      DateTime             @default(now())
+
+  company   Company? @relation(fields: [companyId], references: [id])
+  contact   Contact? @relation(fields: [contactId], references: [id])
+
+  @@unique([companyId, contactId, channel])
+}
+
+model OAuthState {
+  id         String                @id @default(cuid())
+  stateHash  String                @unique
+  provider   CommunicationProvider
+  returnUrl  String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime              @default(now())
+}
+
+model CompanySourceObservation {
+  id           String   @id @default(cuid())
+  companyId    String
+  leadSourceId String
+  sourceUrl    String?
+  confidence   Int      @default(0)
+  raw          Json?
+  firstSeenAt  DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+
+  company    Company    @relation(fields: [companyId], references: [id])
+  leadSource LeadSource @relation(fields: [leadSourceId], references: [id])
+
+  @@unique([companyId, leadSourceId])
+  @@index([leadSourceId, lastSeenAt])
+}
+
+model EvidenceRecord {
+  id               String             @id @default(cuid())
+  companyId        String
+  entityType       String             @default("COMPANY")
+  entityId         String?
+  field            String
+  value            String
+  sourceUrl        String?
+  sourceType       EvidenceSource
+  extractionMethod String?
+  confidence       Int                @default(0)
+  trustStatus      VerificationStatus @default(UNVERIFIED)
+  observedAt       DateTime           @default(now())
+  lastCheckedAt    DateTime           @default(now())
+  metadata         Json?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, field])
+  @@index([companyId, trustStatus])
+}
+
+model DataQualityIssue {
+  id          String        @id @default(cuid())
+  companyId   String
+  code        String
+  field       String?
+  title       String
+  description String
+  severity    IssueSeverity
+  status      IssueStatus   @default(OPEN)
+  metadata    Json?
+  detectedAt  DateTime      @default(now())
+  resolvedAt  DateTime?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, status])
+  @@index([severity, status])
+}
+
+model ConnectorRun {
+  id             String             @id @default(cuid())
+  leadSourceId   String
+  status         ConnectorRunStatus @default(RUNNING)
+  strategy       String?
+  candidateCount Int                @default(0)
+  acceptedCount  Int                @default(0)
+  rejectedCount  Int                @default(0)
+  duplicateCount Int                @default(0)
+  issueCount     Int                @default(0)
+  qualityScore   Int                @default(0)
+  diagnostics    Json?
+  errorMessage   String?
+  startedAt      DateTime           @default(now())
+  completedAt    DateTime?
+
+  leadSource LeadSource @relation(fields: [leadSourceId], references: [id])
+
+  @@index([leadSourceId, startedAt])
+}
+
 model Job {
   id           String    @id @default(cuid())
   leadSourceId String?
@@ -305,6 +765,229 @@ enum WebsiteDiscoveryStatus {
   FAILED
 }
 
+enum VerificationStatus {
+  VERIFIED
+  PROBABLE
+  UNVERIFIED
+  CONFLICTING
+  STALE
+  REJECTED
+}
+
+enum EvidenceSource {
+  DIRECTORY
+  OFFICIAL_WEBSITE
+  SEARCH
+  SOCIAL
+  MANUAL
+  DERIVED
+}
+
+enum IssueSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum IssueStatus {
+  OPEN
+  RESOLVED
+  IGNORED
+}
+
+enum ConnectorRunStatus {
+  RUNNING
+  COMPLETE
+  DEGRADED
+  FAILED
+}
+
+enum CommunicationProvider {
+  INTERNAL
+  GMAIL
+  OUTLOOK
+  WHATSAPP_CLOUD
+}
+
+enum CommunicationChannel {
+  EMAIL
+  WHATSAPP
+  LINKEDIN
+  INSTAGRAM
+  SMS
+  CALL
+}
+
+enum ConnectionStatus {
+  PENDING
+  CONNECTED
+  DEGRADED
+  EXPIRED
+  DISCONNECTED
+  ERROR
+}
+
+enum ConversationStatus {
+  OPEN
+  NEEDS_REPLY
+  AWAITING_PROSPECT
+  CLOSED
+}
+
+enum ParticipantRole {
+  SENDER
+  RECIPIENT
+  CC
+  BCC
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+  INTERNAL
+}
+
+enum MessageStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SCHEDULED
+  QUEUED
+  SUBMITTED
+  DELIVERED
+  OPENED
+  CLICKED
+  REPLIED
+  BOUNCED
+  FAILED
+  CANCELLED
+}
+
+enum RecipientType {
+  FROM
+  TO
+  CC
+  BCC
+}
+
+enum ContactabilityState {
+  UNKNOWN
+  REACHABLE
+  DELIVERED
+  REPLIED
+  BOUNCED
+  INVALID
+  UNSUBSCRIBED
+  DO_NOT_CONTACT
+}
+
+enum MessageEventType {
+  CREATED
+  APPROVAL_REQUESTED
+  APPROVED
+  REJECTED
+  SCHEDULED
+  QUEUED
+  SUBMITTED
+  DELIVERED
+  OPENED
+  CLICKED
+  REPLIED
+  BOUNCED
+  FAILED
+  CANCELLED
+  SYNCED
+}
+
+enum TemplateCategory {
+  FIRST_TOUCH
+  FOLLOW_UP
+  REFERRAL
+  PRICING_REPLY
+  MEETING
+  PROPOSAL
+  CLOSE_LOOP
+  UNSUBSCRIBE_ACK
+}
+
+enum ApprovalMode {
+  MANUAL
+  DRAFT_ONLY
+  REQUIRED
+  APPROVED_SEQUENCE
+  AUTOMATIC
+}
+
+enum ScheduleStatus {
+  PENDING
+  QUEUED
+  PROCESSING
+  COMPLETE
+  CANCELLED
+  FAILED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum SuppressionScope {
+  DESTINATION
+  CONTACT
+  COMPANY
+  DOMAIN
+  WORKSPACE
+}
+
+enum SuppressionReason {
+  UNSUBSCRIBED
+  HARD_BOUNCED
+  INVALID_ADDRESS
+  SPAM_COMPLAINT
+  DO_NOT_CONTACT
+  MANUALLY_BLOCKED
+  WRONG_PERSON
+  LEGAL_RESTRICTION
+  DUPLICATE_CONTACT
+}
+
+enum SequenceStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum SequenceEnrollmentStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  EXITED_REPLY
+  EXITED_BOUNCE
+  EXITED_UNSUBSCRIBE
+  EXITED_REJECTED
+  STOPPED
+}
+
+enum ConsentStatus {
+  UNKNOWN
+  OPTED_IN
+  LEGITIMATE_INTEREST
+  OPTED_OUT
+  REVOKED
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
 enum ContactType {
   EMAIL
   PHONE
@@ -359,6 +1042,9 @@ enum JobType {
   SCORE_LEAD
   GENERATE_OUTREACH
   DAILY_REPORT
+  SEND_MESSAGE
+  SYNC_MAILBOX
+  RENEW_MAILBOX_WATCH
 }
 
 enum JobStatus {

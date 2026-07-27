@@ -1,6 +1,28 @@
 # ProspectPilot AI - Phase Wise Product Roadmap
 
-## Current Milestone Status - Phase 1-8 Local Operating Cockpit
+## Current Milestone Status - Communication Core And Gmail Command Center
+
+Implemented and locally verified on July 27, 2026:
+
+- Cross-source company identity and source observation history
+- Evidence ledger for company, website, contact, social, technology, and opportunity fields
+- Confidence, completeness, verification states, stale-data handling, and quarantine
+- Normalized public contacts plus structured decision-maker extraction
+- Connector run diagnostics, quality scoring, and degraded-source alerts
+- Interactive Lead 360 tabs for identity, contacts, evidence, intelligence, and history
+- Manual evidence verification/rejection and quality issue resolution
+- Data Quality Control Center and global attention drawer
+- Idempotent migration of all existing leads into the trust model
+- Provider-neutral communication records for accounts, threads, messages, recipients, events, attachments, templates, approvals, schedules, suppression, preferences, and sequences
+- Gmail OAuth adapter with encrypted token storage, RFC-compliant threaded email, mailbox history sync, push-webhook ingestion, and watch renewal
+- Unified Inbox with lead context, reply classification, thread history, reusable templates, and approval-first composing
+- Lead 360 Conversations tab and automatic CRM transitions for submitted mail and exact-match replies
+- Pre-send trust, contactability, suppression, mailbox, approval, and idempotency checks
+- Demo mailbox fixtures that can be tested safely without transmitting real email
+
+Live Gmail end-to-end verification requires Google OAuth and Pub/Sub credentials. Outlook, WhatsApp Cloud API, assisted LinkedIn launch, attachment storage, and production provider delivery events remain later communication increments. SaaS tenancy is deliberately after the internal revenue workflow proves itself.
+
+## Previous Milestone - Phase 1-8 Local Operating Cockpit
 
 Implemented and locally verified on July 26, 2026:
 
@@ -843,7 +865,53 @@ Every morning, the system has new leads ready for review.
 
 This makes lead generation consistent instead of effort-based.
 
-## Phase 9 - SaaS Preparation
+## Phase 9 - Unified Communication Hub
+
+### Goal
+
+Turn ProspectPilot into the daily outreach command center while preserving trust, consent, and a complete lead history.
+
+### Phase 9A - Communication Core And Gmail
+
+- Provider-neutral domain model and adapter contract
+- Gmail server-side OAuth with encrypted refresh tokens
+- Conversation and message normalization
+- Exact email/contact and provider-thread matching
+- Inbox, Lead 360 composer, reusable templates, and approval queue
+- Scheduled BullMQ submission with idempotency and retry controls
+- Suppression, unsubscribe, bounce, complaint, and do-not-contact safety states
+- Gmail history sync, push events, watch renewal, and fallback polling
+- CRM Contacted and Replied transitions from actual events
+
+### Phase 9B - Reliable Operator Workflow
+
+- Attachment object storage and malware/type validation
+- Draft editing, explicit scheduling UI, and cancel/reschedule controls
+- Delivery, bounce, open, and click events where the provider supports them
+- Manual review queue for unmatched inbound conversations
+- Contactability analytics and mailbox health alerts
+- Sequence enrollment, pause/resume, reply exit, limits, and weekend rules
+
+### Phase 9C - Additional Channels
+
+- Outlook adapter using the same communication interface
+- Official WhatsApp Business/Cloud API
+- Assisted LinkedIn drafting and launch without unauthorized automation
+- Click-to-call, followed later by a compliant telephony provider
+
+### Done Criteria
+
+- Operator sends an approved email from Lead 360 through a connected Gmail account
+- A Gmail reply syncs into the correct lead and conversation without weak matching
+- Timeline and CRM state move from Contacted to Replied
+- Suppressed, unapproved, stale/conflicting, bounced, or duplicate sends are blocked
+- Missing provider events are recoverable through history sync
+
+### Business Value
+
+The operator can research, communicate, and follow up from one trustworthy workspace without turning the product into a spam tool.
+
+## Phase 10 - SaaS Preparation
 
 ### Goal
 
@@ -882,7 +950,7 @@ The app becomes ready for beta users.
 
 This prepares the product for SaaS monetization after internal validation.
 
-## Phase 10 - Advanced Sources And Integrations
+## Phase 11 - Advanced Sources And Integrations
 
 ### Goal
 
@@ -931,7 +999,7 @@ The product supports more sources and becomes flexible for different users.
 
 This makes the product more SaaS-worthy and useful across industries.
 
-## Phase 11 - Optional Outreach Sending
+## Phase 12 - Advanced Outreach Automation
 
 ### Goal
 

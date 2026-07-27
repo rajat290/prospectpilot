@@ -49,7 +49,8 @@ function extractGenericCompanies(input: CrawlSourceInput, connectorId: SourceCon
   const extracted = candidates.map((element) => extractCompanyFromElement($, element, input.url));
   const companies = extracted
     .filter((company): company is ExtractedCompany => Boolean(company && company.confidence >= 35))
-    .filter(dedupeByNameAndWebsite());
+    .filter(isPlausibleCompany)
+    .filter(dedupeByIdentity());
 
   return {
     companies,
@@ -98,7 +99,7 @@ function extractCarPartCompanies(input: CrawlSourceInput): CrawlSourceOutput {
   });
 
   return {
-    companies: companies.filter(dedupeByNameAndWebsite()),
+    companies: companies.filter(isPlausibleCompany).filter(dedupeByIdentity()),
     diagnostics: {
       candidateCount: $("li").length,
       extractionStrategy: "car-part-dealer-list",
@@ -284,14 +285,40 @@ function cleanName(name: string): string {
   return name.replace(/\s+/g, " ").replace(/\b(view profile|learn more|website)\b/gi, "").trim();
 }
 
-function dedupeByNameAndWebsite() {
+function isPlausibleCompany(company: ExtractedCompany) {
+  const normalizedName = normalizeIdentityText(company.name);
+  if (normalizedName.length < 3 || normalizedName.length > 140) return false;
+  if (/^(home|about|contact|services|products|menu|directory|search|login|sign up|learn more|read more)$/.test(normalizedName)) {
+    return false;
+  }
+  if (company.email && !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(company.email)) return false;
+  if (company.phone) {
+    const digits = company.phone.replace(/\D/g, "");
+    if (digits.length < 7 || digits.length > 15 || new Set(digits).size < 3) return false;
+  }
+  if (company.websiteUrl && !/^https?:\/\//i.test(company.websiteUrl)) return false;
+  return true;
+}
+
+function dedupeByIdentity() {
   const seen = new Set<string>();
   return (company: ExtractedCompany) => {
-    const key = `${company.name.toLowerCase()}|${company.websiteUrl ?? ""}`;
+    const host = company.websiteUrl ? safeHost(company.websiteUrl) : "";
+    const location = [company.city, company.region, company.country].filter(Boolean).join("|").toLowerCase();
+    const key = host ? `domain:${host}` : `name:${normalizeIdentityText(company.name)}|${location}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   };
+}
+
+function normalizeIdentityText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\b(incorporated|corporation|company|limited|inc|corp|llc|ltd|co)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function resolveConnector(url: string): { id: SourceConnectorId } {

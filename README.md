@@ -4,7 +4,23 @@ ProspectPilot turns public business directories into prioritized, outreach-ready
 
 ## Current Milestone
 
-The local Phase 1-8 operating cockpit includes:
+The local operating cockpit now includes the completed **Lead Intelligence Spine** and the first **Unified Communication Hub** milestone:
+
+- Cross-source company identity fingerprints and duplicate matching
+- Field-level evidence ledger with origin URL, extraction method, confidence, and review state
+- Verified, probable, unverified, conflicting, stale, and rejected trust states
+- Automatic completeness scoring, quality issues, and suspicious-lead quarantine
+- Normalized contact values and explicit decision-maker extraction from structured website evidence
+- Connector run diagnostics, acceptance ratios, duplicate counts, and health history
+- Interactive Lead 360 workspace with Overview, Contacts, Evidence, Intelligence, Conversations, and History tabs
+- Data Quality Control Center and global attention drawer
+- Provider-neutral conversations, messages, recipients, events, templates, approvals, schedules, suppressions, and sequences
+- Gmail OAuth adapter, encrypted token storage, threaded RFC email submission, history sync, and push-webhook ingestion
+- Approval-first Inbox and Lead 360 composer with exact contact/thread matching
+- Contacted and Replied CRM transitions recorded from real communication events
+- Demo communication fixtures that exercise replies, pending approvals, sequences, and suppression without sending email
+
+The wider Phase 1-8 cockpit also includes:
 
 - Source ingestion through connector modules
 - Company, contact, social, and website enrichment
@@ -16,7 +32,20 @@ The local Phase 1-8 operating cockpit includes:
 - Scheduled daily source runs, job history, retries, and daily reports
 - Crawl caps, pacing, timeouts, and basic robots.txt checks
 
-The rule-based intelligence engine works without paid credentials. Search-provider website discovery and LLM analysis are the next provider-backed upgrades.
+The rule-based intelligence engine and communication demo work without paid credentials. Live Gmail requires Google OAuth credentials; search-provider discovery and LLM analysis remain provider-backed upgrades.
+
+## Gmail Command Center
+
+Generate an encryption key and configure Google OAuth in the root `.env`:
+
+```text
+COMMUNICATION_ENCRYPTION_KEY="<base64 32-byte key>"
+GMAIL_CLIENT_ID="<google oauth client id>"
+GMAIL_CLIENT_SECRET="<google oauth client secret>"
+GMAIL_REDIRECT_URI="http://localhost:4000/communications/oauth/gmail/callback"
+```
+
+For automatic push sync, also configure a Gmail Pub/Sub topic and `GMAIL_WEBHOOK_TOKEN`. Without push configuration, the operator can still request mailbox sync from Communications. Open `/communications`, connect Gmail, then use Inbox or a lead's Conversations tab. Every new draft requires approval before it can enter the send queue.
 
 ## Official Website Discovery
 
@@ -42,6 +71,7 @@ npm install
 npm run prisma:generate
 npm run db:push
 npm run seed:demo
+npm run seed:communications
 npm run dev:all
 ```
 
@@ -49,6 +79,8 @@ Open:
 
 - App: http://localhost:3000
 - Interactive product guide: http://localhost:3000/guide
+- Unified inbox: http://localhost:3000/inbox
+- Communication controls: http://localhost:3000/communications
 - API health: http://localhost:4000/health
 
 The demo seed is idempotent and can be rerun without creating duplicate leads.
@@ -57,11 +89,13 @@ The demo seed is idempotent and can be rerun without creating duplicate leads.
 
 1. Open Overview and confirm 12 demo leads and the daily report.
 2. Open Lead database, apply score/stage/contact filters, and export that view.
-3. Open a lead, copy each outreach draft, update its stage, add a reminder, and save a note.
-4. Open Deal pipeline and move a card using drag-and-drop or its stage menu.
-5. Open Sources and add a public directory with a conservative record cap.
-6. Enable or pause daily automation and use Run now for a controlled manual crawl.
-7. Open Automation to inspect jobs, retry failures, and refresh the daily report.
+3. Open Data quality, select a lead, review its evidence, resolve issues, and verify trusted fields.
+4. Open a lead, test all six workspace tabs, draft an email, update its stage, add a reminder, and save a note.
+5. Open Deal pipeline and move a card using drag-and-drop or its stage menu.
+6. Open Sources and add a public directory with a conservative record cap.
+7. Enable or pause daily automation and use Run now for a controlled manual crawl.
+8. Open Automation to inspect jobs, retry failures, and refresh the daily report.
+9. Open Inbox, inspect the seeded reply, then approve or reject the waiting demo draft in Communications.
 
 ## Real Source: Car-Part
 
@@ -87,6 +121,8 @@ npm run typecheck
 npm test
 npm run build
 npm run seed:demo
+npm run seed:communications
+npm run backfill:spine
 npm run db:push
 docker compose ps
 docker compose down
@@ -98,7 +134,7 @@ docker compose down
 apps/web       Next.js operator cockpit
 apps/api       Fastify API and queue producer
 apps/workers   BullMQ ingestion, enrichment, and automation worker
-packages/*     crawler, enrichment, scoring, opportunity, outreach, shared
+packages/*     communications, crawler, enrichment, scoring, opportunity, outreach, shared
 prisma/        PostgreSQL schema and demo seed
 ```
 

@@ -17,6 +17,14 @@ const fixture = `
       <p class="description">Industrial components manufacturer.</p>
       <a href="https://northstar-components.example">Official website</a>
     </article>
+    <article class="listing">
+      <h3>Home</h3>
+      <a href="https://directory.example">Return home</a>
+    </article>
+    <article class="listing">
+      <h3>Northstar Components LLC</h3>
+      <a href="https://northstar-components.example/about">Duplicate official website</a>
+    </article>
   </main>
 `;
 
@@ -32,5 +40,6 @@ assert.equal(result.companies[0]?.websiteUrl, "https://brightdental.example/");
 assert.equal(result.companies[0]?.email, "hello@brightdental.example");
 assert.equal(result.companies[0]?.sourceUrl, "https://directory.example/members/bright-dental");
 assert.equal(result.companies[1]?.name, "Northstar Components");
+assert.ok(result.diagnostics.rejectedCount >= 2);
 
 console.log("Crawler fixture test passed.");
