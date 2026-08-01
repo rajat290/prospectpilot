@@ -1,6 +1,6 @@
 # ProspectPilot AI - Phase Wise Product Roadmap
 
-## Current Milestone Status - Phase 9B Operations Locally Complete
+## Current Milestone Status - Phase 9C Code Complete, Live Gmail Evidence Pending
 
 Implemented and locally verified on July 27, 2026:
 
@@ -25,8 +25,13 @@ Implemented and locally verified on July 27, 2026:
 - Delivery and bounce analytics with hard-bounce suppression and sequence cancellation
 - Approval-first operational sequence enrollment and step generation
 - Periodic Gmail reconciliation alongside push/webhook sync
+- Non-secret Gmail connection-event ledger, explicit token-refresh test, reconciliation test, provider revocation, and reconnect-safe mailbox identity
+- Campaign readiness engine with trust, contactability, consent, suppression, prior-contact, and duplicate-enrollment checks
+- Explicit Gmail sender selection, two-stage typed approval, 100-recipient hard cap, paced scheduling, daily/per-domain limits, timezone windows, and required opt-out text
+- Campaign launch history, cancellation, CRM/reply/bounce exits, and send-time revalidation
+- Dedicated Campaign Launch Center and Phase 9C acceptance report
 
-The only uncompleted acceptance gate is external: a dedicated Gmail mailbox must be connected with user-provided Google OAuth credentials, then the real send, reply, sync, match, and CRM transition loop must be witnessed. Outlook, WhatsApp Cloud API, and assisted LinkedIn remain later increments. SaaS tenancy is deliberately after the internal revenue workflow proves itself.
+The remaining Phase 9C gates are external: a dedicated Gmail mailbox must be connected with user-provided Google OAuth credentials, then the real send, reply, sync, match, CRM transition, refresh, disconnect/reconnect, and reconciliation loop must be witnessed. A first campaign also needs enough verified recipients and a properly authenticated sending domain. Simulated evidence is never accepted as real-provider evidence.
 
 ## Previous Milestone - Phase 1-8 Local Operating Cockpit
 
@@ -899,12 +904,18 @@ Turn ProspectPilot into the daily outreach command center while preserving trust
 - [x] Sequence enrollment, approval, pause/resume/stop, reply exits, and commercial exit rules
 - [ ] Live Gmail Connect → Send → Reply → Sync acceptance test with user-provided credentials
 
-### Phase 9C - Additional Channels
+### Phase 9C - Live Gmail Activation And Campaign Acceptance
 
-- Outlook adapter using the same communication interface
-- Official WhatsApp Business/Cloud API
-- Assisted LinkedIn drafting and launch without unauthorized automation
-- Click-to-call, followed later by a compliant telephony provider
+- [x] Non-secret connection lifecycle audit and credential readiness diagnostics
+- [x] Forced refresh, reconciliation, disconnect, provider revoke, and reconnect-safe mailbox identity controls
+- [x] Existing outbound Gmail sync promotion from `PROVIDER_SUBMITTED` to `SENT`
+- [x] Real-NDR cancellation of pending follow-ups and sequence exits
+- [x] Campaign eligibility preview with explicit block reasons
+- [x] Bulk preparation and approval-gated enrollment for up to 100 recipients
+- [x] Explicit sender mailbox, daily/per-domain caps, send windows, pacing, opt-out text, and send-time revalidation
+- [x] Campaign cancellation, audit history, and operator launch UI
+- [ ] Real Gmail OAuth and complete acceptance run with user-provided credentials
+- [ ] First real campaign launch after domain and recipient readiness checks
 
 ### Done Criteria
 

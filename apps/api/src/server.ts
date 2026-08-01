@@ -17,6 +17,7 @@ import { buildCompanyWhere, companyInclude, leadQuerySchema } from "./lead-query
 import { queueCompanyEnrichment, queueInitialSourcePipeline } from "./queues.js";
 import { registerCommunicationRoutes } from "./communications.js";
 import { registerPhase9BRoutes } from "./communications-phase9b.js";
+import { registerPhase9CRoutes } from "./communications-phase9c.js";
 
 const prisma = new PrismaClient();
 const app = Fastify({ logger: true, bodyLimit: 11 * 1024 * 1024 });
@@ -294,6 +295,30 @@ app.patch("/companies/:id/crm", async (request, reply) => {
     create: { companyId: id, ...body },
     update: body
   });
+  if (["MEETING", "PROPOSAL", "WON", "LOST", "RETAINER"].includes(crmItem.status)) {
+    const reason = `Campaign stopped because CRM moved to ${crmItem.status}.`;
+    await prisma.$transaction([
+      prisma.sequenceEnrollment.updateMany({
+        where: { companyId: id, status: { in: ["PENDING_APPROVAL", "ACTIVE", "AWAITING_MESSAGE_APPROVAL", "PAUSED"] } },
+        data: { status: "STOPPED", exitReason: reason, completedAt: new Date(), nextStepAt: null }
+      }),
+      prisma.message.updateMany({
+        where: {
+          companyId: id,
+          sequenceEnrollmentId: { not: null },
+          status: { in: ["PENDING_APPROVAL", "APPROVED", "SCHEDULED", "QUEUED"] }
+        },
+        data: { status: "CANCELLED", failureReason: reason }
+      }),
+      prisma.scheduledMessage.updateMany({
+        where: {
+          message: { companyId: id, sequenceEnrollmentId: { not: null } },
+          status: { in: ["PENDING", "QUEUED"] }
+        },
+        data: { status: "CANCELLED", cancelledAt: new Date(), lastError: reason }
+      })
+    ]);
+  }
   await addActivity(id, "CRM_UPDATED", `Pipeline moved to ${crmItem.status.replaceAll("_", " ").toLowerCase()}`);
   return reply.send(crmItem);
 });
@@ -449,6 +474,7 @@ app.get("/companies/export.csv", async (request, reply) => {
 
 await registerCommunicationRoutes(app, prisma);
 await registerPhase9BRoutes(app, prisma);
+await registerPhase9CRoutes(app, prisma);
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);

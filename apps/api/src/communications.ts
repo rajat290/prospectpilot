@@ -13,6 +13,8 @@ import { encryptSecret, GmailAdapter, normalizeAddress } from "@prospectpilot/co
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { env } from "./env.js";
+import { oauthSyncCursor } from "./gmail-connection-sync.js";
+import { messageSubmissionIssue } from "./message-submission.js";
 import { queueCommunicationSend, queueGmailSync } from "./queues.js";
 
 const gmail = new GmailAdapter({
@@ -116,7 +118,7 @@ export async function registerCommunicationRoutes(app: FastifyInstance, prisma: 
           accessTokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
           grantedScopes: tokens.scope?.split(" ") ?? [],
           status: "CONNECTED",
-          syncCursor: profile.historyId
+          syncCursor: oauthSyncCursor(null, profile.historyId)
         },
         update: {
           accessTokenEncrypted: encryptSecret(tokens.access_token, env.communicationEncryptionKey),
@@ -124,11 +126,21 @@ export async function registerCommunicationRoutes(app: FastifyInstance, prisma: 
           accessTokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
           grantedScopes: tokens.scope?.split(" ") ?? existing?.grantedScopes ?? [],
           status: "CONNECTED",
-          syncCursor: profile.historyId,
+          // Preserve the previous cursor so reconciliation can recover mail received while disconnected.
+          syncCursor: oauthSyncCursor(existing, profile.historyId),
           lastError: null
         }
       });
       await prisma.oAuthState.update({ where: { id: state.id }, data: { consumedAt: new Date() } });
+      await prisma.connectionEvent.create({
+        data: {
+          connectionId: connection.id,
+          type: existing ? "OAUTH_RECONNECTED" : "OAUTH_CONNECTED",
+          outcome: "PASS",
+          details: existing ? "Google consent refreshed the existing mailbox connection." : "Google consent created the mailbox connection.",
+          metadata: { grantedScopeCount: tokens.scope?.split(" ").filter(Boolean).length ?? 0 }
+        }
+      });
       await queueGmailSync(connection.id);
       return reply.redirect(`${env.webUrl}${state.returnUrl}?connected=gmail`);
     } catch (error) {
@@ -139,16 +151,41 @@ export async function registerCommunicationRoutes(app: FastifyInstance, prisma: 
 
   app.patch("/communications/accounts/:id/disconnect", async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
-    const account = await prisma.channelConnection.update({
-      where: { id },
-      data: {
-        status: "DISCONNECTED",
-        accessTokenEncrypted: null,
-        refreshTokenEncrypted: null,
-        accessTokenExpiresAt: null,
-        watchExpirationAt: null,
-        lastError: null
-      }
+    const existing = await prisma.channelConnection.findUnique({ where: { id } });
+    if (!existing) return reply.code(404).send({ message: "Mailbox not found." });
+    const account = await prisma.$transaction(async (tx) => {
+      const updated = await tx.channelConnection.update({
+        where: { id },
+        data: {
+          status: "DISCONNECTED",
+          accessTokenEncrypted: null,
+          refreshTokenEncrypted: null,
+          accessTokenExpiresAt: null,
+          watchExpirationAt: null,
+          lastError: null
+        }
+      });
+      await tx.connectionEvent.create({
+        data: {
+          connectionId: id,
+          type: "DISCONNECTED",
+          outcome: "PASS",
+          details: "Local OAuth tokens were removed. Google access was not revoked."
+        }
+      });
+      await tx.scheduledMessage.updateMany({
+        where: { message: { connectionId: id }, status: { in: ["PENDING", "QUEUED"] } },
+        data: { status: "CANCELLED", cancelledAt: new Date(), lastError: "Sending mailbox disconnected." }
+      });
+      await tx.message.updateMany({
+        where: { connectionId: id, status: { in: ["APPROVED", "SCHEDULED", "QUEUED"] } },
+        data: { status: "CANCELLED", failureReason: "Sending mailbox disconnected." }
+      });
+      await tx.campaignLaunch.updateMany({
+        where: { connectionId: id, status: { in: ["AWAITING_APPROVAL", "PREPARING", "READY_TO_SEND", "LAUNCHED"] } },
+        data: { status: "PAUSED" }
+      });
+      return updated;
     });
     return reply.send(account);
   });
@@ -344,7 +381,8 @@ export async function registerCommunicationRoutes(app: FastifyInstance, prisma: 
     }).parse(request.body ?? {});
     const message = await prisma.message.findUnique({ where: { id }, include: { approval: true } });
     if (!message) return reply.code(404).send({ message: "Message not found." });
-    if (message.approval?.status !== "APPROVED") return reply.code(409).send({ message: "Message needs approval before submission." });
+    const submissionIssue = messageSubmissionIssue({ status: message.status, approvalStatus: message.approval?.status });
+    if (submissionIssue) return reply.code(409).send({ message: submissionIssue });
     if (body.scheduledAt && body.scheduledAt <= new Date()) return reply.code(400).send({ message: "Scheduled time must be in the future." });
     const queued = await queueCommunicationSend(id, body.scheduledAt);
     if (body.scheduledAt) {

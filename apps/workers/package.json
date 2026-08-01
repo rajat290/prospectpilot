@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/worker.ts",
     "build": "tsc --outDir dist",
+    "test": "node --import tsx --test src/communication-worker.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc --outDir dist",
-    "test": "node --import tsx --test src/lead-query.test.ts",
+    "test": "node --import tsx --test src/lead-query.test.ts src/message-submission.test.ts src/gmail-connection-sync.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -3,7 +3,9 @@ import type { PrismaClient } from "@prisma/client";
 import { config } from "dotenv";
 import { fileURLToPath } from "node:url";
 import {
+  appendOptOutLine,
   assertSendAllowed,
+  CommunicationSafetyError,
   decryptSecret,
   encryptSecret,
   extractDomain,
@@ -55,6 +57,17 @@ export async function processCommunicationJob(job: BullJob, prisma: PrismaClient
     }
     return result;
   } catch (error) {
+    if (job.name === JOB_NAMES.sendCommunication && error instanceof CommunicationSafetyError) {
+      const messageId = (job.data as { messageId: string }).messageId;
+      const blocked = await recordSafetyBlock(messageId, error, prisma);
+      if (trackedJobId) {
+        await prisma.job.update({
+          where: { id: trackedJobId },
+          data: { status: "COMPLETE", completedAt: new Date(), result: asJson(blocked), errorMessage: null }
+        });
+      }
+      return blocked;
+    }
     if (trackedJobId) {
       await prisma.job.update({
         where: { id: trackedJobId },
@@ -67,6 +80,45 @@ export async function processCommunicationJob(job: BullJob, prisma: PrismaClient
     }
     throw error;
   }
+}
+
+async function recordSafetyBlock(messageId: string, error: CommunicationSafetyError, prisma: PrismaClient) {
+  const message = await prisma.message.findUnique({ where: { id: messageId } });
+  if (!message) return { blocked: error.code, reason: error.message };
+  const disposition = classifySafetyBlock(error.code, message.status);
+  if (disposition.preserveTerminal) {
+    return { blocked: error.code, reason: error.message, terminalMessagePreserved: true };
+  }
+
+  await prisma.$transaction([
+    prisma.message.update({
+      where: { id: messageId },
+      data: {
+        status: disposition.messageStatus,
+        failureReason: error.message,
+        events: { create: { type: disposition.messageStatus, metadata: { safetyCode: error.code, reason: error.message } } }
+      }
+    }),
+    prisma.scheduledMessage.updateMany({
+      where: { messageId, status: { in: ["PENDING", "QUEUED"] } },
+      data: {
+        status: disposition.scheduleStatus,
+        cancelledAt: disposition.scheduleStatus === "CANCELLED" ? new Date() : undefined,
+        lastError: error.message
+      }
+    })
+  ]);
+  return { blocked: error.code, reason: error.message, messageStatus: disposition.messageStatus };
+}
+
+export function classifySafetyBlock(code: string, currentStatus: string) {
+  const preserveTerminal = ["SUBMITTED", "PROVIDER_SUBMITTED", "SENT", "DELIVERED", "OPENED", "CLICKED", "REPLIED"].includes(currentStatus);
+  const cancelled = ["SUPPRESSED", "UNREACHABLE_CONTACT", "UNTRUSTED_LEAD"].includes(code);
+  return {
+    preserveTerminal,
+    messageStatus: cancelled ? "CANCELLED" as const : "FAILED" as const,
+    scheduleStatus: cancelled ? "CANCELLED" as const : "FAILED" as const
+  };
 }
 
 async function sendCommunication(messageId: string, prisma: PrismaClient, communicationQueue?: Queue) {
@@ -86,6 +138,7 @@ async function sendCommunication(messageId: string, prisma: PrismaClient, commun
     }
   });
   if (!message || !message.company || !message.connection) throw new Error("Message, lead, or sending account is missing.");
+  if (message.status === "CANCELLED") return { skipped: "Message was cancelled before provider submission." };
   if (message.connection.provider !== "GMAIL") throw new Error("Only Gmail sending is available in this milestone.");
   const to = message.recipients.filter((item) => item.type === "TO");
   if (!to.length) throw new Error("Message has no primary recipient.");
@@ -119,6 +172,9 @@ async function sendCommunication(messageId: string, prisma: PrismaClient, commun
       approvalStatus: message.approval?.status,
       requireApproval: true
     });
+    if (message.sequenceEnrollmentId && message.sequenceEnrollment) {
+      await assertSequenceSendCapacity(message, recipient.normalizedAddress, prisma);
+    }
   }
 
   const token = await getAccessToken(message.connection.id, prisma);
@@ -153,7 +209,6 @@ async function sendCommunication(messageId: string, prisma: PrismaClient, commun
           providerMessageId: result.providerMessageId,
           providerThreadId: result.providerThreadId,
           submittedAt,
-          sentAt: submittedAt,
           events: { create: { type: "PROVIDER_SUBMITTED", occurredAt: submittedAt } }
         }
       }),
@@ -329,11 +384,37 @@ async function saveGmailThread(
   let savedCount = 0;
   for (const payload of thread.messages ?? []) {
     const parsed = parseGmailMessage(payload);
+    const inbound = normalizeAddress(parsed.from.address) !== normalizeAddress(connection.emailAddress);
     const existing = await prisma.message.findUnique({
       where: { connectionId_providerMessageId: { connectionId: connection.id, providerMessageId: payload.id } }
     });
-    if (existing) continue;
-    const inbound = normalizeAddress(parsed.from.address) !== normalizeAddress(connection.emailAddress);
+    if (existing) {
+      if (!inbound && ["SUBMITTED", "PROVIDER_SUBMITTED"].includes(existing.status)) {
+        await prisma.$transaction([
+          prisma.message.update({
+            where: { id: existing.id },
+            data: {
+              status: "SENT",
+              sentAt: parsed.occurredAt,
+              providerThreadId: payload.threadId,
+              events: {
+                create: {
+                  type: "SENT",
+                  occurredAt: parsed.occurredAt,
+                  providerEventId: `gmail-sync:${payload.id}:sent`,
+                  metadata: { confirmedFromGmailSent: true }
+                }
+              }
+            }
+          }),
+          prisma.conversation.update({
+            where: { id: existing.conversationId },
+            data: { providerThreadId: payload.threadId, status: "AWAITING_PROSPECT", latestMessageAt: parsed.occurredAt }
+          })
+        ]);
+      }
+      continue;
+    }
     const bounceNotice = inbound && isBounceNotice(parsed);
     const externalAddress = inbound ? parsed.from.address : parsed.to[0]?.address;
     const contact = externalAddress
@@ -542,7 +623,7 @@ async function processSequenceEnrollment(enrollmentId: string, prisma: PrismaCli
   const enrollment = await prisma.sequenceEnrollment.findUnique({
     where: { id: enrollmentId },
     include: {
-      sequence: { include: { steps: { orderBy: { position: "asc" } } } },
+      sequence: { include: { steps: { orderBy: { position: "asc" } }, connection: true } },
       company: { include: { crmItem: true, opportunities: { orderBy: { confidence: "desc" }, take: 1 } } },
       contact: true
     }
@@ -588,11 +669,16 @@ async function processSequenceEnrollment(enrollmentId: string, prisma: PrismaCli
   }
   const existing = await prisma.message.findFirst({ where: { sequenceEnrollmentId: enrollment.id, sequenceStepId: step.id } });
   if (existing) return { skipped: "Step message already exists.", messageId: existing.id };
-  const connection = await prisma.channelConnection.findFirst({
-    where: { status: "CONNECTED", channel: "EMAIL", provider: { in: ["GMAIL", "INTERNAL"] } },
-    orderBy: { provider: "asc" }
-  });
+  const connection = enrollment.sequence.connectionId
+    ? await prisma.channelConnection.findUnique({ where: { id: enrollment.sequence.connectionId } })
+    : await prisma.channelConnection.findFirst({
+        where: { status: "CONNECTED", channel: "EMAIL", provider: "GMAIL" },
+        orderBy: { updatedAt: "desc" }
+      });
   if (!connection) throw new Error("No connected email mailbox is available for this sequence.");
+  if (connection.status !== "CONNECTED" || connection.provider !== "GMAIL") {
+    throw new Error("The sequence requires its connected Gmail mailbox.");
+  }
   const conversation = await prisma.conversation.findFirst({
     where: { companyId: enrollment.company.id, channel: "EMAIL", participants: { some: { normalizedAddress: normalizeAddress(enrollment.contact.value) } } },
     orderBy: { latestMessageAt: "desc" }
@@ -624,8 +710,11 @@ async function processSequenceEnrollment(enrollmentId: string, prisma: PrismaCli
       channel: "EMAIL",
       direction: "OUTBOUND",
       status: "PENDING_APPROVAL",
+      idempotencyKey: `sequence:${enrollment.id}:step:${step.id}`,
       subject: renderSequenceText(step.subject || enrollment.sequence.name, enrollment),
-      bodyText: renderSequenceText(step.body, enrollment),
+      bodyText: enrollment.sequence.requireOptOut
+        ? appendOptOutLine(renderSequenceText(step.body, enrollment))
+        : renderSequenceText(step.body, enrollment),
       recipients: {
         create: {
           contactId: enrollment.contact.id,
@@ -658,7 +747,96 @@ async function processSequenceEnrollment(enrollmentId: string, prisma: PrismaCli
       }
     })
   ]);
+  if (enrollment.campaignLaunchId) {
+    const [total, prepared] = await Promise.all([
+      prisma.sequenceEnrollment.count({ where: { campaignLaunchId: enrollment.campaignLaunchId } }),
+      prisma.sequenceEnrollment.count({
+        where: { campaignLaunchId: enrollment.campaignLaunchId, status: "AWAITING_MESSAGE_APPROVAL" }
+      })
+    ]);
+    if (total > 0 && total === prepared) {
+      await prisma.campaignLaunch.update({
+        where: { id: enrollment.campaignLaunchId },
+        data: { status: "READY_TO_SEND" }
+      });
+    }
+  }
   return { messageId: message.id, step: step.position, awaitingApproval: true };
+}
+
+async function assertSequenceSendCapacity(
+  message: {
+    id: string;
+    sequenceEnrollment: { sequenceId: string } | null;
+    sequenceStepId: string | null;
+  },
+  destination: string,
+  prisma: PrismaClient
+) {
+  if (!message.sequenceEnrollment) return;
+  const sequence = await prisma.sequence.findUnique({ where: { id: message.sequenceEnrollment.sequenceId } });
+  if (!sequence) throw new Error("Sequence policy is unavailable.");
+  const startOfDay = zonedStartOfDay(new Date(), sequence.sendingTimezone);
+  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+  const submittedToday = await prisma.message.count({
+    where: {
+      sequenceEnrollment: { sequenceId: sequence.id },
+      status: { in: ["PROVIDER_SUBMITTED", "SENT", "DELIVERED", "OPENED", "CLICKED", "REPLIED"] },
+      submittedAt: { gte: startOfDay, lt: endOfDay },
+      id: { not: message.id }
+    }
+  });
+  if (submittedToday >= sequence.dailyLimit) throw new Error(`Sequence daily limit ${sequence.dailyLimit} reached.`);
+  const domain = extractDomain(destination);
+  if (domain) {
+    const sameDomainToday = await prisma.messageRecipient.count({
+      where: {
+        type: "TO",
+        normalizedAddress: { endsWith: `@${domain}` },
+        message: {
+          sequenceEnrollment: { sequenceId: sequence.id },
+          status: { in: ["PROVIDER_SUBMITTED", "SENT", "DELIVERED", "OPENED", "CLICKED", "REPLIED"] },
+          submittedAt: { gte: startOfDay, lt: endOfDay },
+          id: { not: message.id }
+        }
+      }
+    });
+    if (sameDomainToday >= sequence.perDomainLimit) {
+      throw new Error(`Sequence per-domain limit ${sequence.perDomainLimit} reached for ${domain}.`);
+    }
+  }
+}
+
+function zonedStartOfDay(value: Date, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(value);
+  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const year = Number(map.year);
+  const month = Number(map.month);
+  const day = Number(map.day);
+  let utc = Date.UTC(year, month - 1, day);
+  const rendered = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(new Date(utc));
+  const renderedMap = Object.fromEntries(rendered.map((part) => [part.type, part.value]));
+  utc -= Date.UTC(
+    Number(renderedMap.year),
+    Number(renderedMap.month) - 1,
+    Number(renderedMap.day),
+    Number(renderedMap.hour),
+    Number(renderedMap.minute)
+  ) - Date.UTC(year, month - 1, day);
+  return new Date(utc);
 }
 
 function renderSequenceText(value: string, enrollment: {
@@ -745,6 +923,22 @@ async function applyDetectedBounce(
     });
   }
   await prisma.$transaction([
+    prisma.scheduledMessage.updateMany({
+      where: {
+        message: { companyId: message.companyId, sequenceEnrollmentId: { not: null } },
+        status: { in: ["PENDING", "QUEUED"] }
+      },
+      data: { status: "CANCELLED", cancelledAt: new Date(), lastError: "Sequence stopped after Gmail delivery failure." }
+    }),
+    prisma.message.updateMany({
+      where: {
+        companyId: message.companyId,
+        sequenceEnrollmentId: { not: null },
+        id: { not: message.id },
+        status: { in: ["PENDING_APPROVAL", "APPROVED", "SCHEDULED", "QUEUED"] }
+      },
+      data: { status: "CANCELLED", failureReason: "Sequence stopped after Gmail delivery failure." }
+    }),
     prisma.sequenceEnrollment.updateMany({
       where: { companyId: message.companyId, status: { in: ["ACTIVE", "AWAITING_MESSAGE_APPROVAL", "PAUSED"] } },
       data: { status: "EXITED_BOUNCE", exitReason: "Gmail delivery-status notification", completedAt: new Date(), nextStepAt: null }
@@ -766,17 +960,51 @@ async function getAccessToken(connectionId: string, prisma: PrismaClient) {
   ) {
     return decryptSecret(connection.accessTokenEncrypted, encryptionKey);
   }
-  const refreshed = await gmail.refreshToken(decryptSecret(connection.refreshTokenEncrypted, encryptionKey));
-  await prisma.channelConnection.update({
-    where: { id: connection.id },
-    data: {
-      accessTokenEncrypted: encryptSecret(refreshed.access_token, encryptionKey),
-      accessTokenExpiresAt: new Date(Date.now() + refreshed.expires_in * 1000),
-      status: "CONNECTED",
-      lastError: null
-    }
-  });
-  return refreshed.access_token;
+  try {
+    const refreshed = await gmail.refreshToken(decryptSecret(connection.refreshTokenEncrypted, encryptionKey));
+    await prisma.$transaction([
+      prisma.channelConnection.update({
+        where: { id: connection.id },
+        data: {
+          accessTokenEncrypted: encryptSecret(refreshed.access_token, encryptionKey),
+          accessTokenExpiresAt: new Date(Date.now() + refreshed.expires_in * 1000),
+          status: "CONNECTED",
+          lastError: null
+        }
+      }),
+      prisma.connectionEvent.create({
+        data: {
+          connectionId: connection.id,
+          type: "TOKEN_REFRESH",
+          outcome: "PASS",
+          details: "Access token refreshed automatically."
+        }
+      })
+    ]);
+    return refreshed.access_token;
+  } catch (error) {
+    const reason = sanitizeProviderError(error);
+    const authFailure = /HTTP (400|401|403)|invalid_grant|invalid_token|unauthorized/i.test(reason);
+    await prisma.$transaction([
+      prisma.channelConnection.update({
+        where: { id: connection.id },
+        data: { status: authFailure ? "EXPIRED" : "ERROR", lastError: reason }
+      }),
+      prisma.connectionEvent.create({
+        data: { connectionId: connection.id, type: "TOKEN_REFRESH", outcome: "FAIL", details: reason }
+      })
+    ]);
+    throw new Error(reason);
+  }
+}
+
+function sanitizeProviderError(error: unknown) {
+  const raw = error instanceof Error ? error.message : "Gmail provider operation failed.";
+  return raw
+    .replace(/Bearer\s+[^\s]+/gi, "Bearer [redacted]")
+    .replace(/refresh_token=[^&\s]+/gi, "refresh_token=[redacted]")
+    .replace(/access_token[\"'=:\s]+[^,\"'\s}]+/gi, "access_token=[redacted]")
+    .slice(0, 1000);
 }
 
 function parseGmailMessage(message: GmailMessage) {

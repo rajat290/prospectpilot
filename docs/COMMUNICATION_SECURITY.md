@@ -68,3 +68,20 @@ If the old key is unavailable, disconnect each mailbox and complete OAuth consen
 5. Reply from the second account and run mailbox sync.
 6. Verify the same provider thread, exact lead/contact match, timeline event, CRM `REPLIED`, and sequence exit.
 7. Revoke credentials once and confirm the connection reports an error.
+
+Use `/campaigns` for the live acceptance dashboard. It exposes only boolean secret readiness, encrypted-token presence, non-secret connection events, provider status, and record IDs.
+
+## First Campaign Safety Gate
+
+Before selecting real recipients:
+
+1. Use a dedicated business sending mailbox with SPF, DKIM, and DMARC configured for its domain.
+2. Complete the two-mailbox Phase 9C acceptance loop.
+3. Add only verified or probable email contacts with evidence.
+4. Review every blocked reason in Campaign Launch Center.
+5. Keep the first sequence within its configured daily and per-domain limits.
+6. Use a clear sender identity and the required respectful opt-out line.
+7. Type the displayed `PREPARE`, `APPROVE`, and `LAUNCH` confirmations yourself.
+8. Monitor replies, bounces, suppressions, and provider errors after every batch.
+
+Campaign preparation never sends email. Only the final typed launch confirmation schedules provider submission.

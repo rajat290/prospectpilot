@@ -312,6 +312,9 @@ model ChannelConnection {
   conversations Conversation[]
   messages      Message[]
   inboundReviews InboundReview[]
+  connectionEvents ConnectionEvent[]
+  sequences        Sequence[]
+  campaignLaunches CampaignLaunch[]
 
   @@unique([provider, emailAddress])
   @@index([status])
@@ -568,19 +571,30 @@ model SuppressionEntry {
 }
 
 model Sequence {
-  id             String               @id @default(cuid())
-  name           String
-  channel        CommunicationChannel
-  status         SequenceStatus       @default(DRAFT)
-  approvalMode   ApprovalMode         @default(REQUIRED)
-  dailyLimit     Int                  @default(25)
-  perDomainLimit Int                  @default(3)
-  skipWeekends   Boolean              @default(true)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  id                     String               @id @default(cuid())
+  connectionId           String?
+  name                   String
+  channel                CommunicationChannel
+  status                 SequenceStatus       @default(DRAFT)
+  approvalMode           ApprovalMode         @default(REQUIRED)
+  dailyLimit             Int                  @default(25)
+  perDomainLimit         Int                  @default(3)
+  maxLaunchSize          Int                  @default(100)
+  minIntervalSeconds     Int                  @default(60)
+  sendingTimezone        String               @default("America/New_York")
+  sendWindowStartMinutes Int                  @default(540)
+  sendWindowEndMinutes   Int                  @default(1020)
+  skipWeekends           Boolean              @default(true)
+  requireOptOut          Boolean              @default(true)
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
 
+  connection  ChannelConnection? @relation(fields: [connectionId], references: [id])
   steps       SequenceStep[]
   enrollments SequenceEnrollment[]
+  launches    CampaignLaunch[]
+
+  @@index([connectionId, status])
 }
 
 model SequenceStep {
@@ -602,6 +616,7 @@ model SequenceStep {
 model SequenceEnrollment {
   id             String                   @id @default(cuid())
   sequenceId     String
+  campaignLaunchId String?
   companyId      String
   contactId      String?
   conversationId String?
@@ -616,6 +631,7 @@ model SequenceEnrollment {
   completedAt    DateTime?
 
   sequence     Sequence      @relation(fields: [sequenceId], references: [id])
+  campaignLaunch CampaignLaunch? @relation(fields: [campaignLaunchId], references: [id])
   company      Company       @relation(fields: [companyId], references: [id])
   contact      Contact?      @relation(fields: [contactId], references: [id])
   conversation Conversation? @relation(fields: [conversationId], references: [id])
@@ -623,6 +639,50 @@ model SequenceEnrollment {
 
   @@index([status, nextStepAt])
   @@index([companyId, status])
+  @@index([campaignLaunchId, status])
+  @@unique([sequenceId, contactId])
+}
+
+model CampaignLaunch {
+  id                   String               @id @default(cuid())
+  sequenceId           String
+  connectionId         String
+  status               CampaignLaunchStatus @default(PREVIEW)
+  requestedCount       Int                  @default(0)
+  eligibleCount        Int                  @default(0)
+  blockedCount         Int                  @default(0)
+  enrolledCount        Int                  @default(0)
+  approvedMessageCount Int                  @default(0)
+  scheduledCount       Int                  @default(0)
+  selection            Json?
+  diagnostics          Json?
+  approvedAt           DateTime?
+  launchedAt           DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  sequence    Sequence             @relation(fields: [sequenceId], references: [id])
+  connection  ChannelConnection    @relation(fields: [connectionId], references: [id])
+  enrollments SequenceEnrollment[]
+
+  @@index([status, createdAt])
+  @@index([sequenceId, createdAt])
+}
+
+model ConnectionEvent {
+  id           String   @id @default(cuid())
+  connectionId String
+  type         String
+  outcome      String
+  details      String?
+  metadata     Json?
+  occurredAt   DateTime @default(now())
+
+  connection ChannelConnection @relation(fields: [connectionId], references: [id])
+
+  @@index([connectionId, occurredAt])
+  @@index([type, occurredAt])
 }
 
 model WebhookEvent {
@@ -1040,6 +1100,19 @@ enum SequenceEnrollmentStatus {
   EXITED_UNSUBSCRIBE
   EXITED_REJECTED
   STOPPED
+}
+
+enum CampaignLaunchStatus {
+  PREVIEW
+  READY
+  AWAITING_APPROVAL
+  PREPARING
+  READY_TO_SEND
+  LAUNCHED
+  PAUSED
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 enum InboundReviewStatus {

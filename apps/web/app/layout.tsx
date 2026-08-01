@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BarChart3, Bot, BriefcaseBusiness, CircleHelp, Database, Mail, MessagesSquare, Radar, Settings2, ShieldCheck } from "lucide-react";
+import { BarChart3, Bot, BriefcaseBusiness, CircleHelp, Database, Mail, MessagesSquare, Radar, Rocket, Settings2, ShieldCheck } from "lucide-react";
 import { NotificationCenter } from "../components/notification-center";
 import "./globals.css";
 
@@ -27,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <NavItem href="/quality" label="Data quality" icon={<ShieldCheck size={18} />} />
               <NavItem href="/inbox" label="Inbox" icon={<Mail size={18} />} />
               <NavItem href="/communications" label="Communications" icon={<MessagesSquare size={18} />} />
+              <NavItem href="/campaigns" label="Campaign launch" icon={<Rocket size={18} />} />
               <NavItem href="/pipeline" label="Deal pipeline" icon={<BriefcaseBusiness size={18} />} />
               <NavItem href="/sources" label="Sources" icon={<Radar size={18} />} />
               <NavItem href="/automation" label="Automation" icon={<Bot size={18} />} />

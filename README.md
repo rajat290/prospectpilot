@@ -4,7 +4,7 @@ ProspectPilot turns public business directories into prioritized, outreach-ready
 
 ## Current Milestone
 
-The local operating cockpit now includes the completed **Lead Intelligence Spine**, **Unified Communication Core**, and locally verified **Phase 9B Operations**:
+The local operating cockpit now includes the completed **Lead Intelligence Spine**, **Unified Communication Core**, **Phase 9B Operations**, and the code-complete **Phase 9C Gmail Acceptance and Campaign Launch layer**:
 
 - Cross-source company identity fingerprints and duplicate matching
 - Field-level evidence ledger with origin URL, extraction method, confidence, and review state
@@ -25,6 +25,9 @@ The local operating cockpit now includes the completed **Lead Intelligence Spine
 - Delivery/bounce analytics with hard-bounce invalidation, suppression, pending-message cancellation, and sequence exit
 - Approval-gated sequence activation, enrollment, pause/resume/stop, due-step drafting, and reply/commercial exit rules
 - Twenty-minute Gmail history reconciliation in addition to optional Pub/Sub push sync
+- Non-secret Gmail lifecycle diagnostics, forced refresh test, provider revocation, reconnect-safe account identity, and connection event history
+- Campaign readiness with explicit trust, contactability, consent, suppression, prior-contact, and duplicate block reasons
+- Up-to-100 recipient preparation with two typed approvals, explicit Gmail sender selection, paced scheduling, daily/per-domain limits, timezone windows, opt-out text, and cancellation
 
 The wider Phase 1-8 cockpit also includes:
 
@@ -53,7 +56,7 @@ GMAIL_REDIRECT_URI="http://localhost:4000/communications/oauth/gmail/callback"
 
 For automatic push sync, also configure a Gmail Pub/Sub topic and `GMAIL_WEBHOOK_TOKEN`. Without push configuration, the operator can still request mailbox sync from Communications. Open `/communications`, connect Gmail, then use Inbox or a lead's Conversations tab. Every new draft requires approval before it can enter the send queue.
 
-See [Communication Security Runbook](./docs/COMMUNICATION_SECURITY.md) for Gmail activation, key rotation, attachment security, reconciliation, and the exact live acceptance test.
+See [Communication Security Runbook](./docs/COMMUNICATION_SECURITY.md) for Gmail activation and [Phase 9C Acceptance](./docs/COMMUNICATION_ACCEPTANCE.md) for the real-provider evidence matrix. The implementation is ready, but Phase 9C is not accepted until the dedicated Gmail loop passes with real credentials.
 
 ## Official Website Discovery
 
@@ -89,6 +92,7 @@ Open:
 - Interactive product guide: http://localhost:3000/guide
 - Unified inbox: http://localhost:3000/inbox
 - Communication controls: http://localhost:3000/communications
+- Campaign launch center: http://localhost:3000/campaigns
 - API health: http://localhost:4000/health
 
 The demo seed is idempotent and can be rerun without creating duplicate leads.
@@ -105,6 +109,7 @@ The demo seed is idempotent and can be rerun without creating duplicate leads.
 8. Open Automation to inspect jobs, retry failures, and refresh the daily report.
 9. Open Inbox, inspect the seeded reply, then approve or reject the waiting demo draft in Communications.
 10. In Communications, review the unmatched sender, inspect the scheduled queue, approve the demo sequence enrollment, and download the scanned demo attachment.
+11. Open Campaign launch, inspect provider gates, eligible/blocked reasons, pacing policy, and the two-stage prepare/launch controls.
 
 ## Real Source: Car-Part
 

@@ -20,6 +20,21 @@ export type ProviderMessageResult = {
   status: "SUBMITTED";
 };
 
+export type CampaignSchedulePolicy = {
+  timezone: string;
+  dailyLimit: number;
+  perDomainLimit: number;
+  minIntervalSeconds: number;
+  sendWindowStartMinutes: number;
+  sendWindowEndMinutes: number;
+  skipWeekends: boolean;
+};
+
+export type CampaignScheduleTarget = {
+  id: string;
+  domain: string;
+};
+
 export type GmailTokenResponse = {
   access_token: string;
   refresh_token?: string;
@@ -85,6 +100,33 @@ export function assertSendAllowed(input: {
 
 export function renderTemplate(template: string, variables: Record<string, string | undefined>) {
   return template.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (_match, key: string) => variables[key] ?? "");
+}
+
+export function appendOptOutLine(body: string, optOutLine = "If this is not relevant, reply no and I will not contact you again.") {
+  const normalized = body.trim();
+  if (/\b(unsubscribe|opt[\s-]?out|not contact you again|stop contacting)\b/i.test(normalized)) return normalized;
+  return `${normalized}\n\n${optOutLine}`;
+}
+
+export function campaignAddressIssues(value: string) {
+  const address = normalizeAddress(value);
+  const [localPart = "", domain = ""] = address.split("@");
+  const issues: string[] = [];
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) issues.push("Invalid email format");
+  if (["webmaster", "postmaster", "mailer-daemon", "noreply", "no-reply", "donotreply", "do-not-reply"].includes(localPart)) {
+    issues.push("Technical or non-reply mailbox");
+  }
+  if (
+    domain === "domain.com" ||
+    domain.endsWith(".example") ||
+    domain === "example.com" ||
+    domain.endsWith(".local") ||
+    domain.includes("sentry-next.wixpress.com")
+  ) {
+    issues.push("Placeholder or infrastructure domain");
+  }
+  if (domain === "car-part.com") issues.push("Directory-platform mailbox is not the business contact");
+  return issues;
 }
 
 export function buildMimeMessage(input: ProviderMessageInput) {
@@ -214,6 +256,17 @@ export class GmailAdapter implements CommunicationProvider {
       grant_type: "refresh_token"
     });
     return this.requestToken(body);
+  }
+
+  async revokeToken(token: string) {
+    const body = new URLSearchParams({ token });
+    const response = await (this.config.fetcher ?? fetch)("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body
+    });
+    if (!response.ok) throw new Error(`Google token revocation failed with HTTP ${response.status}`);
+    return { revoked: true };
   }
 
   async getProfile(accessToken: string) {
@@ -362,5 +415,121 @@ function parseEncryptionKey(value: string) {
   if (key.length !== 32) throw new Error("COMMUNICATION_ENCRYPTION_KEY must be a base64-encoded 32-byte key.");
   return key;
 }
+
+export function planCampaignSchedule(
+  targets: CampaignScheduleTarget[],
+  startAt: Date,
+  policy: CampaignSchedulePolicy
+) {
+  validateCampaignPolicy(policy);
+  const scheduled: Array<{ id: string; dueAt: Date }> = [];
+  const dailyCounts = new Map<string, number>();
+  const domainCounts = new Map<string, number>();
+  let cursor = new Date(startAt);
+
+  for (const target of targets) {
+    let guard = 0;
+    while (guard++ < 400_000) {
+      cursor = normalizeCampaignCursor(cursor, policy);
+      const local = zonedParts(cursor, policy.timezone);
+      const dayKey = `${local.year}-${pad(local.month)}-${pad(local.day)}`;
+      const domainKey = `${dayKey}:${target.domain.toLowerCase()}`;
+      if ((dailyCounts.get(dayKey) ?? 0) >= policy.dailyLimit || (domainCounts.get(domainKey) ?? 0) >= policy.perDomainLimit) {
+        cursor = nextLocalDay(local, policy);
+        continue;
+      }
+      scheduled.push({ id: target.id, dueAt: new Date(cursor) });
+      dailyCounts.set(dayKey, (dailyCounts.get(dayKey) ?? 0) + 1);
+      domainCounts.set(domainKey, (domainCounts.get(domainKey) ?? 0) + 1);
+      cursor = new Date(cursor.getTime() + policy.minIntervalSeconds * 1000);
+      break;
+    }
+    if (guard >= 400_000) throw new Error("Could not place campaign target inside the configured sending policy.");
+  }
+  return scheduled;
+}
+
+function validateCampaignPolicy(policy: CampaignSchedulePolicy) {
+  if (policy.dailyLimit < 1 || policy.dailyLimit > 500) throw new Error("Campaign daily limit must be between 1 and 500.");
+  if (policy.perDomainLimit < 1 || policy.perDomainLimit > policy.dailyLimit) throw new Error("Per-domain limit is invalid.");
+  if (policy.minIntervalSeconds < 10) throw new Error("Campaign interval must be at least 10 seconds.");
+  if (policy.sendWindowStartMinutes < 0 || policy.sendWindowEndMinutes > 1440 || policy.sendWindowStartMinutes >= policy.sendWindowEndMinutes) {
+    throw new Error("Campaign sending window is invalid.");
+  }
+  zonedParts(new Date(), policy.timezone);
+}
+
+function normalizeCampaignCursor(value: Date, policy: CampaignSchedulePolicy) {
+  let cursor = new Date(value);
+  for (let attempt = 0; attempt < 370; attempt += 1) {
+    const local = zonedParts(cursor, policy.timezone);
+    const weekday = new Date(Date.UTC(local.year, local.month - 1, local.day)).getUTCDay();
+    if (policy.skipWeekends && (weekday === 0 || weekday === 6)) {
+      cursor = nextLocalDay(local, policy);
+      continue;
+    }
+    const minute = local.hour * 60 + local.minute;
+    if (minute < policy.sendWindowStartMinutes) {
+      return localMinuteToUtc(local.year, local.month, local.day, policy.sendWindowStartMinutes, policy.timezone);
+    }
+    if (minute >= policy.sendWindowEndMinutes) {
+      cursor = nextLocalDay(local, policy);
+      continue;
+    }
+    return cursor;
+  }
+  throw new Error("Could not find an allowed campaign sending window.");
+}
+
+function nextLocalDay(
+  local: { year: number; month: number; day: number },
+  policy: CampaignSchedulePolicy
+) {
+  const next = new Date(Date.UTC(local.year, local.month - 1, local.day + 1));
+  return localMinuteToUtc(
+    next.getUTCFullYear(),
+    next.getUTCMonth() + 1,
+    next.getUTCDate(),
+    policy.sendWindowStartMinutes,
+    policy.timezone
+  );
+}
+
+function localMinuteToUtc(year: number, month: number, day: number, minuteOfDay: number, timezone: string) {
+  const hour = Math.floor(minuteOfDay / 60);
+  const minute = minuteOfDay % 60;
+  let utc = Date.UTC(year, month - 1, day, hour, minute);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const rendered = zonedParts(new Date(utc), timezone);
+    const renderedUtc = Date.UTC(rendered.year, rendered.month - 1, rendered.day, rendered.hour, rendered.minute);
+    utc -= renderedUtc - Date.UTC(year, month - 1, day, hour, minute);
+  }
+  return new Date(utc);
+}
+
+function zonedParts(value: Date, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(value);
+  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour: Number(map.hour),
+    minute: Number(map.minute)
+  };
+}
+
+function pad(value: number) {
+  return String(value).padStart(2, "0");
+}
+
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 export * from "./storage.js";
