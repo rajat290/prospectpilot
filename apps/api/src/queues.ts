@@ -60,7 +60,7 @@ export async function queueCompanyEnrichment(companyId: string, type: JobType = 
   return trackedJob;
 }
 
-export async function queueCommunicationSend(messageId: string, dueAt?: Date) {
+export async function queueCommunicationSend(messageId: string, dueAt?: Date, attemptId?: string) {
   const trackedJob = await prisma.job.create({
     data: {
       type: "SEND_MESSAGE",
@@ -74,7 +74,7 @@ export async function queueCommunicationSend(messageId: string, dueAt?: Date) {
     { messageId, trackedJobId: trackedJob.id },
     {
       delay,
-      jobId: `send-${messageId}`,
+      jobId: attemptId ? `send-${messageId}-${attemptId}` : `send-${messageId}`,
       attempts: 3,
       backoff: { type: "exponential", delay: 10_000 },
       removeOnComplete: 100,
@@ -133,4 +133,34 @@ export async function queueGmailSync(connectionId: string) {
     }
   );
   return trackedJob;
+}
+
+export async function queueReplyAnalysis(messageId: string) {
+  const trackedJob = await prisma.job.create({
+    data: { type: "ANALYZE_REPLY", status: "QUEUED", payload: { messageId } }
+  });
+  const job = await communicationQueue.add(
+    JOB_NAMES.analyzeReply,
+    { messageId, trackedJobId: trackedJob.id },
+    {
+      jobId: `analyze-reply-${messageId}-${Date.now()}`,
+      attempts: 2,
+      backoff: { type: "exponential", delay: 15_000 },
+      removeOnComplete: 200,
+      removeOnFail: 250
+    }
+  );
+  return { trackedJob, queueJobId: String(job.id) };
+}
+
+export async function queueStalledConversationDetection() {
+  const trackedJob = await prisma.job.create({
+    data: { type: "DETECT_STALLED_CONVERSATIONS", status: "QUEUED", payload: { requestedAt: new Date().toISOString() } }
+  });
+  const job = await communicationQueue.add(
+    JOB_NAMES.detectStalledConversations,
+    { trackedJobId: trackedJob.id },
+    { jobId: `detect-stalled-${Date.now()}`, removeOnComplete: 100, removeOnFail: 100 }
+  );
+  return { trackedJob, queueJobId: String(job.id) };
 }

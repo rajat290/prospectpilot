@@ -16,5 +16,9 @@ export const env = {
   gmailPubsubTopic: process.env.GMAIL_PUBSUB_TOPIC ?? "",
   gmailWebhookToken: process.env.GMAIL_WEBHOOK_TOKEN ?? "",
   attachmentSigningKey: process.env.ATTACHMENT_SIGNING_KEY ?? "",
-  attachmentStorageRoot: process.env.ATTACHMENT_STORAGE_ROOT ?? fileURLToPath(new URL("../../../.data/attachments", import.meta.url))
+  attachmentStorageRoot: process.env.ATTACHMENT_STORAGE_ROOT ?? fileURLToPath(new URL("../../../.data/attachments", import.meta.url)),
+  openAiApiKey: process.env.OPENAI_API_KEY ?? "",
+  openAiModel: process.env.OPENAI_MODEL ?? "gpt-5.6",
+  automaticIntelligenceAiEnabled: process.env.INTELLIGENCE_AI_ENABLED === "true",
+  intelligenceReviewThreshold: Number(process.env.INTELLIGENCE_REVIEW_THRESHOLD ?? 70)
 };

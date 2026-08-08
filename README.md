@@ -4,7 +4,7 @@ ProspectPilot turns public business directories into prioritized, outreach-ready
 
 ## Current Milestone
 
-The local operating cockpit now includes the completed **Lead Intelligence Spine**, **Unified Communication Core**, **Phase 9B Operations**, and the code-complete **Phase 9C Gmail Acceptance and Campaign Launch layer**:
+The local operating cockpit now includes the completed **Lead Intelligence Spine**, **Unified Communication Core**, **Phase 9B Operations**, the accepted **Phase 9C Gmail Communication Core**, and the **Phase 10 Communication Intelligence and Sales Copilot**:
 
 - Cross-source company identity fingerprints and duplicate matching
 - Field-level evidence ledger with origin URL, extraction method, confidence, and review state
@@ -56,7 +56,9 @@ GMAIL_REDIRECT_URI="http://localhost:4000/communications/oauth/gmail/callback"
 
 For automatic push sync, also configure a Gmail Pub/Sub topic and `GMAIL_WEBHOOK_TOKEN`. Without push configuration, the operator can still request mailbox sync from Communications. Open `/communications`, connect Gmail, then use Inbox or a lead's Conversations tab. Every new draft requires approval before it can enter the send queue.
 
-See [Communication Security Runbook](./docs/COMMUNICATION_SECURITY.md) for Gmail activation and [Phase 9C Acceptance](./docs/COMMUNICATION_ACCEPTANCE.md) for the real-provider evidence matrix. The implementation is ready, but Phase 9C is not accepted until the dedicated Gmail loop passes with real credentials.
+See [Communication Security Runbook](./docs/COMMUNICATION_SECURITY.md) for Gmail operations, [Phase 9C Acceptance](./docs/COMMUNICATION_ACCEPTANCE.md) for the completed real-provider evidence matrix, [Phase 10 Communication Intelligence](./docs/PHASE_10_COMMUNICATION_INTELLIGENCE.md) for the sales-copilot operating model, and the [Dependency Security Audit](./docs/DEPENDENCY_SECURITY_AUDIT_2026-08-02.md) before any public deployment.
+
+For the current product verdict, operational inventory, readiness scorecard, campaign decision, and recommended next work, read the [Product Status Report](./docs/PRODUCT_STATUS_REPORT_2026-08-02.md).
 
 ## Official Website Discovery
 

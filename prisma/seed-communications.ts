@@ -211,10 +211,10 @@ async function main() {
         requireOptOut: true,
         steps: {
           create: [
-            { position: 1, delayHours: 0, subject: "A focused idea for {{companyName}}", body: "Hi {{firstName}}, I found a practical opportunity around {{recommendedOffer}}. I can send a concise implementation outline if useful.\n\nVikas" },
-            { position: 2, delayHours: 96, subject: "Re: A focused idea for {{companyName}}", body: "Hi {{firstName}}, one useful outcome from this work would be a faster and more reliable customer workflow. Happy to share the outline.\n\nVikas" },
-            { position: 3, delayHours: 120, subject: "One practical outcome for {{companyName}}", body: "Hi {{firstName}}, I wanted to leave one practical thought: {{recommendedOffer}} can be scoped as a focused first milestone rather than a large transformation.\n\nVikas" },
-            { position: 4, delayHours: 168, subject: "Closing the loop", body: "Hi {{firstName}}, I will close this out for now. If {{recommendedOffer}} becomes relevant later, I would be glad to help.\n\nVikas" }
+            { position: 1, delayHours: 0, subject: "A focused idea for {{companyName}}", body: "Hi {{firstName}}, I found a practical opportunity around {{recommendedOffer}}. I can send a concise implementation outline if useful.\n\nRajat Tomar" },
+            { position: 2, delayHours: 96, subject: "Re: A focused idea for {{companyName}}", body: "Hi {{firstName}}, one useful outcome from this work would be a faster and more reliable customer workflow. Happy to share the outline.\n\nRajat Tomar" },
+            { position: 3, delayHours: 120, subject: "One practical outcome for {{companyName}}", body: "Hi {{firstName}}, I wanted to leave one practical thought: {{recommendedOffer}} can be scoped as a focused first milestone rather than a large transformation.\n\nRajat Tomar" },
+            { position: 4, delayHours: 168, subject: "Closing the loop", body: "Hi {{firstName}}, I will close this out for now. If {{recommendedOffer}} becomes relevant later, I would be glad to help.\n\nRajat Tomar" }
           ]
         }
       }
@@ -236,10 +236,10 @@ async function main() {
     }
   });
   const launchSteps = [
-    { position: 1, delayHours: 0, subject: "A focused idea for {{companyName}}", body: "Hi {{firstName}}, I found a practical opportunity around {{recommendedOffer}}. I can send a concise implementation outline if useful.\n\nVikas" },
-    { position: 2, delayHours: 96, subject: "Re: A focused idea for {{companyName}}", body: "Hi {{firstName}}, one useful outcome from this work would be a faster and more reliable customer workflow. Happy to share the outline.\n\nVikas" },
-    { position: 3, delayHours: 120, subject: "One practical outcome for {{companyName}}", body: "Hi {{firstName}}, I wanted to leave one practical thought: {{recommendedOffer}} can be scoped as a focused first milestone rather than a large transformation.\n\nVikas" },
-    { position: 4, delayHours: 168, subject: "Closing the loop", body: "Hi {{firstName}}, I will close this out for now. If {{recommendedOffer}} becomes relevant later, I would be glad to help.\n\nVikas" }
+    { position: 1, delayHours: 0, subject: "A focused idea for {{companyName}}", body: "Hi {{firstName}}, I found a practical opportunity around {{recommendedOffer}}. I can send a concise implementation outline if useful.\n\nRajat Tomar" },
+    { position: 2, delayHours: 96, subject: "Re: A focused idea for {{companyName}}", body: "Hi {{firstName}}, one useful outcome from this work would be a faster and more reliable customer workflow. Happy to share the outline.\n\nRajat Tomar" },
+    { position: 3, delayHours: 120, subject: "One practical outcome for {{companyName}}", body: "Hi {{firstName}}, I wanted to leave one practical thought: {{recommendedOffer}} can be scoped as a focused first milestone rather than a large transformation.\n\nRajat Tomar" },
+    { position: 4, delayHours: 168, subject: "Closing the loop", body: "Hi {{firstName}}, I will close this out for now. If {{recommendedOffer}} becomes relevant later, I would be glad to help.\n\nRajat Tomar" }
   ];
   for (const step of launchSteps) {
     await prisma.sequenceStep.upsert({

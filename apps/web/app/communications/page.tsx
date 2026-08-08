@@ -15,7 +15,7 @@ import { ContextHelp } from "../../components/context-help";
 import { Pill } from "../../components/pill";
 import { apiGet } from "../../lib/api";
 
-export default async function CommunicationsPage({ searchParams }: { searchParams: { connected?: string; error?: string } }) {
+export default async function CommunicationsPage({ searchParams }: { searchParams: { connected?: string; error?: string; view?: string } }) {
   const [status, approvals, templates, suppressions, sequences, schedules, reviews, analytics, leads] = await Promise.all([
     apiGet<any>("/communications/status", { providers: { gmail: {} }, accounts: [], counts: {} }),
     apiGet<any[]>("/approval-requests", []),
@@ -28,20 +28,26 @@ export default async function CommunicationsPage({ searchParams }: { searchParam
     apiGet<any[]>("/companies?limit=250&hasContact=true", [])
   ]);
   const hasRealMailbox = status.accounts.some((account: any) => account.provider === "GMAIL" && account.status === "CONNECTED");
+  const advancedView = searchParams.view === "advanced";
 
   return (
     <main className="page communications-page">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Phase 9B operations</p>
-          <h1>Communication control room.</h1>
-          <p className="subtle">Match unknown replies, approve and schedule messages, control sequences, and act on delivery risk.</p>
+          <p className="eyebrow">Email workspace</p>
+          <h1>{advancedView ? "Email operations and safety" : "Messages that need your attention"}</h1>
+          <p className="subtle">{advancedView ? "Manage delivery health, blocked contacts, templates, and follow-up sequences." : "Connect Gmail, review unknown senders, approve drafts, and check scheduled messages."}</p>
         </div>
         <a className="button primary" href="/inbox"><MessagesSquare size={15} /> Open inbox</a>
       </header>
 
       {searchParams.connected ? <div className="quality-alert verified"><CheckCircle2 size={18} /><div><strong>Gmail connected</strong><span>Initial history sync is queued. New exact contact matches will appear in Inbox.</span></div></div> : null}
       {searchParams.error ? <div className="quality-alert critical"><AlertTriangle size={18} /><div><strong>Mailbox connection failed</strong><span>{searchParams.error.replaceAll("_", " ")}</span></div></div> : null}
+
+      <nav className="view-switch" aria-label="Email workspace view">
+        <a className={!advancedView ? "active" : ""} href="/communications">Daily work</a>
+        <a className={advancedView ? "active" : ""} href="/communications?view=advanced">Advanced operations</a>
+      </nav>
 
       <section className="communication-metrics phase9b-metrics">
         <Metric label="Conversations" value={status.counts.conversations || 0} icon={<MessagesSquare size={17} />} />
@@ -54,7 +60,7 @@ export default async function CommunicationsPage({ searchParams }: { searchParam
 
       <section className="communication-grid">
         <div className="stack">
-          <section className="panel">
+          {!advancedView ? <section className="panel">
             <div className="panel-head"><h2>Mailbox connections</h2><GmailConnectButton configured={Boolean(status.providers.gmail.oauthConfigured)} /></div>
             <div className="panel-body">
               <ContextHelp compact title="Live activation gate">Use a dedicated test Gmail account. Google OAuth credentials and consent are still required before the real send, reply, sync, match, and CRM loop can be proven.</ContextHelp>
@@ -72,9 +78,9 @@ export default async function CommunicationsPage({ searchParams }: { searchParam
                 ))}
               </div>
             </div>
-          </section>
+          </section> : null}
 
-          <section className="panel">
+          {!advancedView ? <section className="panel">
             <div className="panel-head"><h2>Unmatched inbound review</h2><span className={`issue-count ${reviews.length ? "critical" : ""}`}>{reviews.length}</span></div>
             <div className="panel-body unmatched-list">
               {reviews.map((review: any) => {
@@ -91,9 +97,9 @@ export default async function CommunicationsPage({ searchParams }: { searchParam
               })}
               {!reviews.length ? <div className="empty"><CheckCircle2 size={22} /><p>No unknown sender is waiting for review.</p></div> : null}
             </div>
-          </section>
+          </section> : null}
 
-          <section className="panel">
+          {!advancedView ? <section className="panel">
             <div className="panel-head"><h2>Approval queue</h2><span className="issue-count">{approvals.length}</span></div>
             <div className="panel-body approval-list">
               {approvals.map((approval: any) => (
@@ -109,9 +115,9 @@ export default async function CommunicationsPage({ searchParams }: { searchParam
               ))}
               {!approvals.length ? <div className="empty"><CheckCircle2 size={22} /><p>No drafts are waiting for review.</p></div> : null}
             </div>
-          </section>
+          </section> : null}
 
-          <section className="panel">
+          {!advancedView ? <section className="panel">
             <div className="panel-head"><h2>Scheduled delivery queue</h2><Clock3 size={16} /></div>
             <div className="panel-body scheduled-list">
               {schedules.map((schedule: any) => (
@@ -124,18 +130,28 @@ export default async function CommunicationsPage({ searchParams }: { searchParam
               ))}
               {!schedules.length ? <div className="empty">No scheduled messages.</div> : null}
             </div>
-          </section>
+          </section> : null}
 
-          <section className="panel">
+          {advancedView ? <section className="panel">
             <div className="panel-head"><h2>Active suppression list</h2><ShieldOff size={16} /></div>
             <div className="panel-body"><SuppressionForm /><div className="suppression-list">
               {suppressions.map((entry: any) => <div key={entry.id}><span className="icon-box"><ShieldOff size={14} /></span><div><strong>{entry.normalizedDestination || entry.domain || entry.company?.name || "Entire workspace"}</strong><p>{entry.reason.replaceAll("_", " ")} · {entry.details || "No operator note"}</p></div><RevokeSuppression id={entry.id} /></div>)}
             </div></div>
-          </section>
+          </section> : null}
         </div>
 
         <aside className="stack">
-          <section className="panel">
+          {!advancedView ? <section className="panel">
+            <div className="panel-head"><h2>What to do here</h2><MessagesSquare size={16} /></div>
+            <div className="panel-body operator-checklist">
+              <div><b>1</b><span><strong>Unknown sender?</strong><small>Match it only when you know the correct lead.</small></span></div>
+              <div><b>2</b><span><strong>Draft waiting?</strong><small>Verify recipient, claims, offer, and signature before approval.</small></span></div>
+              <div><b>3</b><span><strong>Scheduled message?</strong><small>Reschedule or cancel it before its due time when needed.</small></span></div>
+              <a className="button" href="/guide#glossary">Look up an email status</a>
+            </div>
+          </section> : null}
+
+          {advancedView ? <section className="panel">
             <div className="panel-head"><h2>Safety readiness</h2><MailCheck size={16} /></div>
             <div className="panel-body readiness-list">
               <Readiness ready={status.providers.gmail.oauthConfigured} label="Gmail OAuth credentials" />
@@ -145,22 +161,22 @@ export default async function CommunicationsPage({ searchParams }: { searchParam
               <Readiness ready={true} label="Approval + suppression gates" />
               <Readiness ready={Boolean(status.attachments?.signingConfigured)} label="Production attachment signing" />
             </div>
-          </section>
+          </section> : null}
 
-          <section className="panel">
+          {advancedView ? <section className="panel">
             <div className="panel-head"><h2>Delivery pulse</h2><BarChart3 size={16} /></div>
             <div className="panel-body delivery-pulse">
               <div className="delivery-bars">{analytics.statuses.map((item: any) => <div key={item.status}><span>{item.status.replaceAll("_", " ")}</span><strong>{item._count}</strong><div><i style={{ width: `${Math.min(100, item._count * 12)}%` }} /></div></div>)}</div>
               {analytics.recentFailures.map((message: any) => <article key={message.id}><div><strong>{message.company?.name || "Unknown lead"}</strong><span>{message.failureReason || message.bounceCategory || message.status}</span></div><DeliveryEventActions messageId={message.id} status={message.status} /></article>)}
             </div>
-          </section>
+          </section> : null}
 
-          <section className="panel">
+          {advancedView ? <section className="panel">
             <div className="panel-head"><h2>Reusable templates</h2><FileText size={16} /></div>
             <div className="panel-body template-list">{templates.map((template: any) => <div key={template.id}><div><strong>{template.name}</strong><Pill value={template.category} /></div><span>{template.subject || "No subject"}</span><p>{template.body}</p><small>{template.variables.length} variables · approval {template.approvalMode.toLowerCase()}</small></div>)}</div>
-          </section>
+          </section> : null}
 
-          <section className="panel">
+          {advancedView ? <section className="panel">
             <div className="panel-head"><h2>Operational sequences</h2><Route size={16} /></div>
             <div className="panel-body sequence-list">
               {sequences.map((sequence: any) => (
@@ -172,7 +188,7 @@ export default async function CommunicationsPage({ searchParams }: { searchParam
                 </div>
               ))}
             </div>
-          </section>
+          </section> : null}
         </aside>
       </section>
     </main>

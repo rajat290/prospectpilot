@@ -16,6 +16,7 @@ import {
   storeAttachment
 } from "@prospectpilot/communications";
 import { JOB_NAMES } from "@prospectpilot/shared";
+import { analyzeInboundMessage, detectStalledConversations } from "./intelligence-worker.js";
 
 config({ path: new URL("../../../.env", import.meta.url) });
 
@@ -41,13 +42,17 @@ export async function processCommunicationJob(job: BullJob, prisma: PrismaClient
     if (job.name === JOB_NAMES.sendCommunication) {
       result = await sendCommunication((job.data as { messageId: string }).messageId, prisma, communicationQueue);
     } else if (job.name === JOB_NAMES.syncGmail) {
-      result = await syncGmailMailbox((job.data as { connectionId: string }).connectionId, prisma);
+      result = await syncGmailMailbox((job.data as { connectionId: string }).connectionId, prisma, communicationQueue);
     } else if (job.name === JOB_NAMES.renewGmailWatch) {
       result = await renewGmailWatch((job.data as { connectionId: string }).connectionId, prisma);
     } else if (job.name === JOB_NAMES.processSequence) {
       result = await processSequenceEnrollment((job.data as { enrollmentId: string }).enrollmentId, prisma);
     } else if (job.name === JOB_NAMES.reconcileMailboxes) {
-      result = await reconcileMailboxes(prisma);
+      result = await reconcileMailboxes(prisma, communicationQueue);
+    } else if (job.name === JOB_NAMES.analyzeReply) {
+      result = await analyzeInboundMessage((job.data as { messageId: string }).messageId, prisma);
+    } else if (job.name === JOB_NAMES.detectStalledConversations) {
+      result = await detectStalledConversations(prisma);
     }
     if (trackedJobId) {
       await prisma.job.update({
@@ -312,7 +317,7 @@ async function sendCommunication(messageId: string, prisma: PrismaClient, commun
   }
 }
 
-async function syncGmailMailbox(connectionId: string, prisma: PrismaClient) {
+async function syncGmailMailbox(connectionId: string, prisma: PrismaClient, communicationQueue?: Queue) {
   const connection = await prisma.channelConnection.findUnique({ where: { id: connectionId } });
   if (!connection || connection.provider !== "GMAIL" || connection.status !== "CONNECTED") {
     throw new Error("Connected Gmail account not found.");
@@ -344,7 +349,7 @@ async function syncGmailMailbox(connectionId: string, prisma: PrismaClient) {
   for (const threadId of Array.from(threadIds).slice(0, 50)) {
     const thread = await gmail.getThread(token, threadId) as GmailThread;
     newestHistoryId = thread.historyId || newestHistoryId;
-    syncedMessages += await saveGmailThread(connection, thread, prisma, token);
+    syncedMessages += await saveGmailThread(connection, thread, prisma, token, communicationQueue);
   }
   const profile = await gmail.getProfile(token);
   newestHistoryId = profile.historyId || newestHistoryId;
@@ -379,7 +384,8 @@ async function saveGmailThread(
   connection: { id: string; emailAddress: string },
   thread: GmailThread,
   prisma: PrismaClient,
-  accessToken: string
+  accessToken: string,
+  communicationQueue?: Queue
 ) {
   let savedCount = 0;
   for (const payload of thread.messages ?? []) {
@@ -598,17 +604,41 @@ async function saveGmailThread(
         });
       }
     }
+    if (inbound && !bounceNotice && communicationQueue) await queueReplyAnalysis(message.id, prisma, communicationQueue);
     savedCount += 1;
   }
   return savedCount;
 }
 
-async function reconcileMailboxes(prisma: PrismaClient) {
+async function queueReplyAnalysis(messageId: string, prisma: PrismaClient, communicationQueue: Queue) {
+  const existingIntelligence = await prisma.replyIntelligence.findUnique({ where: { messageId }, select: { id: true } });
+  if (existingIntelligence) return { skipped: "Reply intelligence already exists." };
+  const queueJobId = `analyze-reply-${messageId}`;
+  const existingJob = await communicationQueue.getJob(queueJobId);
+  if (existingJob) return { queueJobId, reused: true };
+  const tracked = await prisma.job.create({
+    data: { type: "ANALYZE_REPLY", status: "QUEUED", payload: { messageId } }
+  });
+  await communicationQueue.add(
+    JOB_NAMES.analyzeReply,
+    { messageId, trackedJobId: tracked.id },
+    {
+      jobId: queueJobId,
+      attempts: 2,
+      backoff: { type: "exponential", delay: 15_000 },
+      removeOnComplete: 200,
+      removeOnFail: 250
+    }
+  );
+  return { queueJobId, trackedJobId: tracked.id };
+}
+
+async function reconcileMailboxes(prisma: PrismaClient, communicationQueue?: Queue) {
   const connections = await prisma.channelConnection.findMany({ where: { provider: "GMAIL", status: "CONNECTED" } });
   const results: Array<{ connectionId: string; ok: boolean; error?: string }> = [];
   for (const connection of connections) {
     try {
-      await syncGmailMailbox(connection.id, prisma);
+      await syncGmailMailbox(connection.id, prisma, communicationQueue);
       results.push({ connectionId: connection.id, ok: true });
     } catch (error) {
       const reason = error instanceof Error ? error.message : "Mailbox reconciliation failed";
@@ -847,7 +877,7 @@ function renderSequenceText(value: string, enrollment: {
     companyName: enrollment.company.name,
     firstName: enrollment.contact?.label?.split(/\s+/)[0] || "there",
     recommendedOffer: enrollment.company.opportunities[0]?.recommendedService || "a focused workflow improvement",
-    senderName: "Vikas"
+    senderName: "Rajat Tomar"
   });
 }
 

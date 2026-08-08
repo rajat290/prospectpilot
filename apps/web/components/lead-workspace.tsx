@@ -34,12 +34,12 @@ import { OutreachMessage } from "./outreach-message";
 import { Pill } from "./pill";
 
 const tabs = [
-  { id: "overview", label: "Overview", icon: Target },
-  { id: "contacts", label: "Contacts & social", icon: Mail },
-  { id: "evidence", label: "Evidence ledger", icon: FileSearch },
-  { id: "intelligence", label: "Intelligence", icon: Sparkles },
-  { id: "conversations", label: "Conversations", icon: MessagesSquare },
-  { id: "history", label: "History", icon: History }
+  { id: "overview", label: "Summary", icon: Target },
+  { id: "contacts", label: "Contact details", icon: Mail },
+  { id: "evidence", label: "Why we trust it", icon: FileSearch },
+  { id: "intelligence", label: "Sales opportunity", icon: Sparkles },
+  { id: "conversations", label: "Messages", icon: MessagesSquare },
+  { id: "history", label: "Timeline", icon: History }
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
@@ -52,7 +52,22 @@ export function LeadWorkspace({ lead, templates = [], accounts = [] }: { lead: a
   const [toast, setToast] = useState("");
   const audit = lead.audits?.[0];
   const opportunity = lead.opportunities?.[0];
+  const activeConversation = lead.conversations?.[0];
+  const conversationIntelligence = activeConversation?.intelligence?.[0];
+  const conversationAction = activeConversation?.recommendedActions?.[0];
   const openIssues = lead.qualityIssues?.filter((issue: any) => issue.status === "OPEN") ?? [];
+  const primaryEmail = lead.contacts?.find((contact: any) => contact.type === "EMAIL" && contact.isPrimary) || lead.contacts?.find((contact: any) => contact.type === "EMAIL");
+  const crmStage = lead.crmItem?.status || lead.status || "NEW";
+  const hasReply = Boolean(activeConversation?.messages?.some((message: any) => message.direction === "INBOUND"));
+  const operatorSummary = lead.quarantinedAt || openIssues.length
+    ? { title: "Review this lead before contact", body: "Some information is suspicious, conflicting, or incomplete. Resolve the quality warning before using it in outreach.", action: "Review issues", tab: "overview" as TabId }
+    : hasReply
+      ? { title: "This prospect has replied", body: "Read the latest message and respond to its questions or recommended next action.", action: "Open messages", tab: "conversations" as TabId }
+      : !primaryEmail
+        ? { title: "A verified email is still missing", body: "This lead may be commercially useful, but email outreach is not ready yet. Research another public contact point.", action: "Review contacts", tab: "contacts" as TabId }
+        : !opportunity
+          ? { title: "Contact found; offer analysis is pending", body: "Confirm the business need and recommended service before preparing outreach.", action: "Review opportunity", tab: "intelligence" as TabId }
+          : { title: "Ready for final outreach review", body: "A contact and recommended opportunity are available. Verify the evidence and personalize the message before approval.", action: "Review opportunity", tab: "intelligence" as TabId };
   const evidence = useMemo(
     () => lead.evidence?.filter((item: any) => evidenceFilter === "ALL" || item.trustStatus === evidenceFilter) ?? [],
     [evidenceFilter, lead.evidence]
@@ -107,6 +122,20 @@ export function LeadWorkspace({ lead, templates = [], accounts = [] }: { lead: a
           <div><strong>No blocking quality issues</strong><span>This lead is ready for final human verification.</span></div>
         </div>
       )}
+
+      <section className="operator-summary">
+        <div className="operator-summary-main">
+          <p className="eyebrow">Lead at a glance</p>
+          <h2>{operatorSummary.title}</h2>
+          <p>{operatorSummary.body}</p>
+          <button className="button primary" onClick={() => setActiveTab(operatorSummary.tab)}>{operatorSummary.action} <ArrowUpRight size={14} /></button>
+        </div>
+        <div className="operator-facts">
+          <div><small>Can email?</small><strong>{primaryEmail ? "Yes" : "Not yet"}</strong><span>{primaryEmail?.value || "Find a verified address"}</span></div>
+          <div><small>Data confidence</small><strong>{lead.overallConfidence || 0}%</strong><span>{openIssues.length ? `${openIssues.length} checks need attention` : "No blocking issue"}</span></div>
+          <div><small>Current stage</small><Pill value={crmStage} /><span>{opportunity?.recommendedService || "Opportunity analysis pending"}</span></div>
+        </div>
+      </section>
 
       <section className="lead-command-strip">
         <div className="lead-score-cluster">
@@ -284,6 +313,17 @@ export function LeadWorkspace({ lead, templates = [], accounts = [] }: { lead: a
       {activeTab === "intelligence" ? (
         <div className="workspace-grid">
           <div className="stack">
+            <Section title="Conversation intelligence" meta={conversationIntelligence ? <Pill value={conversationIntelligence.commercialIntent} /> : <span className="section-meta">No analyzed reply</span>}>
+              {conversationIntelligence ? (
+                <div className="lead-copilot-summary">
+                  <div className="lead-copilot-badges"><Pill value={conversationIntelligence.category} /><Pill value={conversationIntelligence.urgency} /><span>{conversationIntelligence.confidence}% confidence</span></div>
+                  {activeConversation.intelligenceSummary ? <p>{activeConversation.intelligenceSummary.summary}</p> : null}
+                  {conversationAction ? <div><strong>Next: {conversationAction.action.replaceAll("_", " ")}</strong><span>{conversationAction.reason}</span></div> : null}
+                  {activeConversation.objections?.[0] ? <div className="lead-objection"><strong>Objection: {activeConversation.objections[0].type.replaceAll("_", " ")}</strong><span>{activeConversation.objections[0].recommendedHandling}</span></div> : null}
+                  <a className="button primary" href={`/inbox?conversation=${activeConversation.id}`}>Open Sales Copilot <ArrowUpRight size={14} /></a>
+                </div>
+              ) : <div className="empty">A matched inbound reply will create commercial intent, questions, objections, and the next action here.</div>}
+            </Section>
             <Section title="Recommended opportunity" meta={opportunity ? <TrustBadge status={opportunity.confidence >= 75 ? "PROBABLE" : "UNVERIFIED"} /> : null}>
               {opportunity ? (
                 <div className="opportunity-focus">

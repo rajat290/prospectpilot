@@ -127,5 +127,5 @@ function fill(value: string, company: any) {
     .replaceAll("{{observedProblem}}", opportunity?.reasoning || "an opportunity in your current workflow")
     .replaceAll("{{recommendedOffer}}", opportunity?.recommendedService || "a focused workflow improvement")
     .replaceAll("{{businessImpact}}", "faster response and clearer tracking")
-    .replaceAll("{{senderName}}", "Vikas");
+    .replaceAll("{{senderName}}", "Rajat Tomar");
 }

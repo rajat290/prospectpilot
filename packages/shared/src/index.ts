@@ -10,7 +10,9 @@ export const JOB_NAMES = {
   syncGmail: "sync-gmail",
   renewGmailWatch: "renew-gmail-watch",
   processSequence: "process-sequence",
-  reconcileMailboxes: "reconcile-mailboxes"
+  reconcileMailboxes: "reconcile-mailboxes",
+  analyzeReply: "analyze-reply",
+  detectStalledConversations: "detect-stalled-conversations"
 } as const;
 
 export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES];

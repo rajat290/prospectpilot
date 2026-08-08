@@ -133,7 +133,7 @@ async function main() {
       opportunityTitle: opportunity.title,
       recommendedService: opportunity.recommendedService,
       reasoning: opportunity.reasoning,
-      senderName: "Vikas"
+      senderName: "Rajat Tomar"
     });
     for (const draft of drafts) {
       await prisma.outreachDraft.upsert({

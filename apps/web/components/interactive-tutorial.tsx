@@ -19,39 +19,39 @@ import { useEffect, useState } from "react";
 
 const steps = [
   {
-    title: "Understand the money flow",
+    title: "Understand the revenue flow",
     eyebrow: "The big picture",
     icon: Sparkles,
-    body: "ProspectPilot turns a public directory into a ranked sales list. It researches the business, suggests what to sell, and prepares a draft. You still verify the lead and send outreach manually.",
-    tasks: ["Source supplies company records", "Enrichment finds public evidence", "Scoring tells you where to focus"],
+    body: "ProspectPilot finds public businesses, verifies what it can, recommends a useful service, sends only approved Gmail outreach, captures replies, and keeps the deal history together. You remain in control of claims, pricing, and send approval.",
+    tasks: ["Find leads from public sources", "Verify evidence and choose the right opportunity", "Approve outreach and handle replies from one workspace"],
     action: { href: "/", label: "Open command center" }
   },
   {
-    title: "Add a controlled source",
+    title: "Find a small lead sample",
     eyebrow: "Step 1",
     icon: Radar,
     body: "Open Sources, paste one public directory URL, set a small record cap, and start extraction. Begin with 25 records and review quality before increasing the limit or enabling automation.",
     tasks: ["Use a public business directory", "Start with a 25-record cap", "Keep automation off for the first sample"],
-    action: { href: "/sources", label: "Configure a source" }
+    action: { href: "/sources", label: "Open Find leads" }
   },
   {
-    title: "Let the pipeline prepare leads",
+    title: "Let the system research them",
     eyebrow: "Step 2",
     icon: RefreshCw,
-    body: "The worker extracts companies, visits available websites, collects public contacts, audits digital gaps, scores the lead, and creates outreach drafts. Automation shows whether each job completed or failed.",
-    tasks: ["COMPLETE means the job finished", "FAILED jobs can be retried", "Missing websites can use provider search"],
-    action: { href: "/automation", label: "Check worker health" }
+    body: "The system extracts companies, discovers available websites, collects public contacts, checks digital gaps, scores opportunities, and keeps evidence. New records may need research before they are safe to contact.",
+    tasks: ["Complete means research finished", "Needs research means important data is missing", "Verified and probable describe data confidence"],
+    action: { href: "/quality", label: "Review data quality" }
   },
   {
-    title: "Build a focused shortlist",
+    title: "Choose a focused shortlist",
     eyebrow: "Step 3",
     icon: Filter,
     body: "Use Lead Database filters instead of reading every row. Select the real source, choose Hot or Qualified, and prefer records with a public contact. Open a company to verify its evidence.",
     tasks: ["Filter by source", "Start with Hot leads", "Prefer leads with contact details"],
-    action: { href: "/leads?scoreBand=HOT&hasContact=true", label: "View Hot leads" }
+    action: { href: "/leads?scoreBand=HOT&hasContact=true", label: "View contactable leads" }
   },
   {
-    title: "Verify the sales angle",
+    title: "Verify the lead and offer",
     eyebrow: "Step 4",
     icon: Database,
     body: "On a lead page, confirm the website belongs to the company, check the contact, read the detected problem, and judge whether the recommended service is genuinely useful. A high score is a priority signal, not a promise.",
@@ -59,20 +59,36 @@ const steps = [
     action: { href: "/leads", label: "Choose a lead" }
   },
   {
-    title: "Personalize before sending",
+    title: "Prepare and approve outreach",
     eyebrow: "Step 5",
     icon: MessageSquareText,
-    body: "Copy the channel-specific draft and rewrite the opening in your own voice. Mention one real observation. Never send claims that you did not verify on the business website.",
-    tasks: ["Use one specific observation", "Keep the first message short", "Offer a small next step, not a hard sale"],
-    action: { href: "/leads", label: "Open outreach kits" }
+    body: "Create a controlled campaign or open a lead conversation. Review the recipient, evidence, message, offer, and sender name before approval. ProspectPilot then sends through the connected Gmail account and records the result.",
+    tasks: ["Use one verified observation", "Approve each new campaign batch", "Never invent capability, pricing, or proof"],
+    action: { href: "/campaigns", label: "Prepare a campaign" }
   },
   {
-    title: "Track every conversation",
+    title: "Handle replies from Inbox",
     eyebrow: "Step 6",
     icon: Send,
-    body: "After manual outreach, immediately move the lead to Contacted and add a reminder. Move replies, meetings, proposals, wins, and losses through the pipeline so follow-ups never depend on memory.",
-    tasks: ["Set Contacted after sending", "Add the next reminder", "Write a note with context and next action"],
-    action: { href: "/pipeline", label: "Open deal pipeline" }
+    body: "Gmail replies sync into Inbox and the correct lead timeline. A real reply stops its active follow-up sequence. Review AI analysis, answer the prospect, and resolve any unmatched reply instead of guessing its company.",
+    tasks: ["Needs reply means your response is pending", "Unmatched replies require manual linking", "Delivery failed means research a replacement address"],
+    action: { href: "/inbox", label: "Open Inbox" }
+  },
+  {
+    title: "Move the deal forward",
+    eyebrow: "Step 7",
+    icon: Send,
+    body: "Keep the CRM stage honest as the conversation moves through qualified, meeting, proposal, negotiation, won, or lost. Add the next action so no opportunity depends on memory.",
+    tasks: ["Use stages to describe reality", "Record a follow-up date", "Keep pricing and delivery promises approved"],
+    action: { href: "/pipeline", label: "Open Deals" }
+  },
+  {
+    title: "Learn any unfamiliar word",
+    eyebrow: "Step 8",
+    icon: Database,
+    body: "Status badges explain themselves when you hover or focus them. The glossary below gives the plain meaning and tells you what to do next for every important operational term.",
+    tasks: ["Hover a status for instant help", "Search the glossary by technical word", "Use Advanced navigation only when operating or diagnosing the system"],
+    action: { href: "/guide#glossary", label: "Open glossary" }
   }
 ];
 
@@ -144,7 +160,7 @@ export function InteractiveTutorial() {
 
         {current === 0 ? (
           <div className="flow-strip" aria-label="ProspectPilot workflow">
-            {["Source", "Companies", "Enrichment", "Scoring", "Outreach", "CRM"].map((item, index) => (
+            {["Find", "Research", "Verify", "Contact", "Reply", "Close"].map((item, index) => (
               <div key={item}><span>{index + 1}</span><strong>{item}</strong>{index < 5 ? <ArrowRight size={14} /> : null}</div>
             ))}
           </div>

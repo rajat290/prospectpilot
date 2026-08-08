@@ -222,6 +222,8 @@ export async function registerCommunicationRoutes(app: FastifyInstance, prisma: 
         company: { include: { leadScore: true, crmItem: true } },
         connection: { select: { id: true, provider: true, emailAddress: true, status: true } },
         participants: true,
+        intelligence: { orderBy: { createdAt: "desc" }, take: 1 },
+        recommendedActions: { where: { status: "PENDING" }, orderBy: [{ priority: "asc" }, { deadlineAt: "asc" }], take: 1 },
         messages: {
           orderBy: { createdAt: "desc" },
           take: 1,
@@ -239,6 +241,13 @@ export async function registerCommunicationRoutes(app: FastifyInstance, prisma: 
         company: { include: { contacts: true, leadScore: true, crmItem: true, opportunities: { take: 1 } } },
         connection: { select: { id: true, provider: true, emailAddress: true, status: true } },
         participants: true,
+        intelligenceSummary: true,
+        intelligence: { orderBy: { createdAt: "desc" }, take: 10 },
+        recommendedActions: { orderBy: { createdAt: "desc" }, take: 10 },
+        objections: { orderBy: { createdAt: "desc" }, take: 10 },
+        meetingIntents: { orderBy: { createdAt: "desc" }, take: 5 },
+        suggestedReplies: { orderBy: { createdAt: "desc" }, take: 10 },
+        salesTasks: { where: { status: { in: ["OPEN", "IN_PROGRESS"] } }, orderBy: [{ priority: "asc" }, { dueAt: "asc" }] },
         messages: {
           orderBy: { createdAt: "asc" },
           include: {

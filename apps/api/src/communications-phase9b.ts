@@ -152,7 +152,7 @@ export async function registerPhase9BRoutes(app: FastifyInstance, prisma: Prisma
       return reply.code(409).send({ message: "Only approved failed messages can be retried." });
     }
     await prisma.message.update({ where: { id }, data: { status: "QUEUED", failureReason: null, events: { create: { type: "QUEUED", metadata: { action: "RETRY" } } } } });
-    return reply.code(202).send((await queueCommunicationSend(id)).trackedJob);
+    return reply.code(202).send((await queueCommunicationSend(id, undefined, `retry-${Date.now()}`)).trackedJob);
   });
 
   app.get("/inbound-reviews", async () => {

@@ -1,4 +1,4 @@
-import { ArrowUpRight, AtSign, BriefcaseBusiness, Clock3, Database, Download, Plus, Radar, Sparkles } from "lucide-react";
+import { ArrowRight, ArrowUpRight, AtSign, BrainCircuit, BriefcaseBusiness, CalendarClock, Clock3, Database, Download, Mail, MessageSquareReply, Plus, Radar, Sparkles, TriangleAlert } from "lucide-react";
 import { apiGet, apiUrl } from "../lib/api";
 import { Pill } from "../components/pill";
 import { ContextHelp } from "../components/context-help";
@@ -16,17 +16,26 @@ type Stats = {
 };
 
 export default async function OverviewPage() {
-  const [stats, leads, sources, reports] = await Promise.all([
+  const [stats, leads, sources, reports, commandBrief] = await Promise.all([
     apiGet<Stats>("/dashboard", {
       sources: 0, companies: 0, contacts: 0, audited: 0, hotLeads: 0, outreachReady: 0, remindersDue: 0, jobs: [], opportunityGroups: []
     }),
     apiGet<any[]>("/companies?limit=8", []),
     apiGet<any[]>("/sources", []),
-    apiGet<any[]>("/reports/daily", [])
+    apiGet<any[]>("/reports/daily", []),
+    apiGet<any>("/command-brief", { greeting: "Good morning, Rajat.", counts: {}, priorities: [], atRisk: [], estimatedPipeline: { currency: "USD", minimum: 0, maximum: 0 } })
   ]);
   const report = reports[0];
   const completeJobs = stats.jobs.find((job) => job.status === "COMPLETE")?._count ?? 0;
   const failedJobs = stats.jobs.find((job) => job.status === "FAILED")?._count ?? 0;
+  const nextActions = [
+    commandBrief.counts.needsReply ? { title: `Answer ${commandBrief.counts.needsReply} waiting ${commandBrief.counts.needsReply === 1 ? "reply" : "replies"}`, detail: "A prospect response is waiting for your attention.", href: "/inbox", icon: <Mail size={17} /> } : null,
+    stats.outreachReady ? { title: `Review ${stats.outreachReady} contact-ready leads`, detail: "Verify the offer and prepare a controlled campaign batch.", href: "/leads?hasContact=true", icon: <AtSign size={17} /> } : null,
+    stats.remindersDue ? { title: `Complete ${stats.remindersDue} due follow-ups`, detail: "Open deals whose next action is due now.", href: "/pipeline", icon: <Clock3 size={17} /> } : null,
+    failedJobs ? { title: `Review ${failedJobs} failed jobs`, detail: "Fix failed research before trusting the affected records.", href: "/automation", icon: <TriangleAlert size={17} /> } : null,
+    !stats.sources ? { title: "Add your first lead source", detail: "Start with a small public directory sample.", href: "/sources/new", icon: <Radar size={17} /> } : null,
+    { title: "Review highest-priority leads", detail: "Check evidence, contactability, and the recommended opportunity.", href: "/leads", icon: <Database size={17} /> }
+  ].filter(Boolean).slice(0, 3) as Array<{ title: string; detail: string; href: string; icon: React.ReactNode }>;
 
   return (
     <main className="page">
@@ -45,6 +54,31 @@ export default async function OverviewPage() {
       <ContextHelp title="Start your day here">
         First check Hot leads and reminders. Open one high-priority company, verify the evidence, then move it through outreach and CRM. Metrics are counts, not automatic approvals.
       </ContextHelp>
+
+      <section className="today-actions" aria-labelledby="next-actions-title">
+        <div className="today-actions-head"><div><p className="eyebrow">Start here</p><h2 id="next-actions-title">Your next three actions</h2></div><span>Work top to bottom</span></div>
+        <div className="today-action-list">
+          {nextActions.map((action, index) => <a href={action.href} key={action.title}><b>{index + 1}</b><span className="icon-box">{action.icon}</span><span><strong>{action.title}</strong><small>{action.detail}</small></span><ArrowRight size={17} /></a>)}
+        </div>
+      </section>
+
+      <section className="command-brief">
+        <div className="command-brief-head"><div><BrainCircuit size={18} /><span><strong>{commandBrief.greeting}</strong><small>Here is the revenue work that deserves attention now.</small></span></div><a className="button" href="/copilot">Open Sales Copilot <ArrowUpRight size={14} /></a></div>
+        <div className="command-brief-body">
+          <div className="command-counts">
+            <CommandCount icon={<MessageSquareReply size={15} />} label="Needs reply" value={commandBrief.counts.needsReply || 0} />
+            <CommandCount icon={<Sparkles size={15} />} label="High intent" value={commandBrief.counts.highIntent || 0} />
+            <CommandCount icon={<AtSign size={15} />} label="Pricing" value={commandBrief.counts.pricingQuestions || 0} />
+            <CommandCount icon={<CalendarClock size={15} />} label="Meetings" value={commandBrief.counts.meetingIntents || 0} />
+            <CommandCount icon={<TriangleAlert size={15} />} label="At risk" value={commandBrief.atRisk?.length || 0} />
+          </div>
+          <div className="revenue-priorities">
+            <header><strong>Revenue priorities</strong><span>Estimated active pipeline: {commandBrief.estimatedPipeline.currency} {commandBrief.estimatedPipeline.minimum?.toLocaleString()}-{commandBrief.estimatedPipeline.maximum?.toLocaleString()}</span></header>
+            {commandBrief.priorities?.slice(0, 4).map((item: any, index: number) => <a href={`/inbox?conversation=${item.conversationId}`} key={item.id}><b>{index + 1}</b><span><strong>{item.title}</strong><small>{item.reason || "Review the recommended next action."}</small></span><Pill value={item.priority} /></a>)}
+            {!commandBrief.priorities?.length ? <div className="command-clear">No urgent conversation action is waiting.</div> : null}
+          </div>
+        </div>
+      </section>
 
       <section className="metric-grid">
         <Metric label="Total leads" value={stats.companies} note={`${stats.audited} fully audited`} icon={<Database size={17} />} />
@@ -121,4 +155,8 @@ function Metric({ label, value, note, icon }: { label: string; value: number; no
 
 function Fact({ label, value }: { label: string; value: string | number }) {
   return <div className="fact"><small>{label}</small><strong>{value}</strong></div>;
+}
+
+function CommandCount({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+  return <div><span>{icon}</span><strong>{value}</strong><small>{label}</small></div>;
 }

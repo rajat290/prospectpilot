@@ -31,11 +31,11 @@ export default async function CampaignsPage() {
     <main className="page">
       <section className="page-head">
         <div>
-          <p className="eyebrow">Phase 9C launch control</p>
-          <h1>Campaign launch center.</h1>
-          <p className="page-subtitle">Prove the Gmail loop, select only trustworthy recipients, and release a paced campaign with explicit operator approval.</p>
+          <p className="eyebrow">Send campaigns</p>
+          <h1>Prepare, review, and send outreach</h1>
+          <p className="page-subtitle">Choose only trustworthy recipients. Nothing sends until the required review and final confirmation are complete.</p>
         </div>
-        <a className="button" href="/communications"><MailCheck size={15} /> Communication control</a>
+        <a className="button" href="/communications"><MailCheck size={15} /> Check email workspace</a>
       </section>
 
       <section className="metric-grid campaign-metrics">
@@ -48,9 +48,9 @@ export default async function CampaignsPage() {
       <section className="campaign-layout">
         <div className="campaign-main">
           <section className="panel">
-            <div className="panel-head"><h2>Provider acceptance gate</h2><Pill value={readiness.providerReady ? "READY" : "BLOCKED"} /></div>
+            <div className="panel-head"><h2>Email connection check</h2><Pill value={readiness.providerReady ? "READY" : "BLOCKED"} /></div>
             <div className="panel-body">
-              <ContextHelp compact title="No secret exposure">This screen reports only configured/not-configured state and encrypted-token presence. It never returns OAuth tokens or secret values.</ContextHelp>
+              <ContextHelp compact title="Why this check exists">Campaigns can use only a connected Gmail account whose credentials are stored safely. Secret values are never shown on this screen.</ContextHelp>
               <div className="acceptance-checklist">
                 <Readiness ready={Boolean(acceptance.credentials?.encryptionKey)} label="Token encryption key" />
                 <Readiness ready={Boolean(acceptance.credentials?.gmailClientId)} label="Google OAuth client ID" />
@@ -59,7 +59,7 @@ export default async function CampaignsPage() {
                 <Readiness ready={Boolean(acceptance.credentials?.attachmentSigning)} label="Attachment download signing" />
                 <Readiness ready={Boolean(acceptance.credentials?.pubsub)} optional label="Gmail push notifications" />
               </div>
-              {!credentialsReady ? <div className="setup-warning"><AlertTriangle size={16} /><div><strong>Provider activation required</strong><span>Add Google OAuth credentials locally, restart the stack, then connect the dedicated test mailbox.</span></div></div> : null}
+              {!credentialsReady ? <div className="setup-warning"><AlertTriangle size={16} /><div><strong>Email setup needs attention</strong><span>Add Google OAuth credentials locally, restart the stack, then connect the dedicated mailbox.</span></div></div> : null}
               {acceptance.accounts.map((account: any) => (
                 <article className="acceptance-account" key={account.id}>
                   <div>
@@ -73,15 +73,15 @@ export default async function CampaignsPage() {
           </section>
 
           <section className="panel">
-            <div className="panel-head"><h2>Prepare a controlled campaign</h2><span className="panel-count">{Math.min(100, readiness.launchCap || 100)} max</span></div>
+            <div className="panel-head"><h2>Choose recipients and prepare drafts</h2><span className="panel-count">{Math.min(100, readiness.launchCap || 100)} max</span></div>
             <div className="panel-body">
-              <ContextHelp compact title="Prepare does not send">Preparation creates approval-gated enrollments. A second typed confirmation is required after all personalized first-touch drafts exist.</ContextHelp>
+              <ContextHelp compact title="Preparation does not send email">This creates personalized drafts and places them behind approval. A second typed confirmation is required before delivery begins.</ContextHelp>
               <CampaignBuilder readiness={readiness} sequences={sequences} />
             </div>
           </section>
 
           <section className="panel">
-            <div className="panel-head"><h2>Launch operations</h2><span className="panel-count">{launches.length}</span></div>
+            <div className="panel-head"><h2>Campaign history and progress</h2><span className="panel-count">{launches.length}</span></div>
             <div className="panel-body campaign-launch-list">
               {launches.length ? launches.map((launch: any) => (
                 <article className="campaign-launch" key={launch.id}>
@@ -132,14 +132,14 @@ export default async function CampaignsPage() {
           </section>
 
           <section className="panel">
-            <div className="panel-head"><h2>Launch sequence</h2><Clock3 size={16} /></div>
+            <div className="panel-head"><h2>How sending works</h2><Clock3 size={16} /></div>
             <div className="panel-body numbered-flow">
               <span><b>1</b> Connect and test Gmail</span>
               <span><b>2</b> Select eligible contacts</span>
-              <span><b>3</b> Type PREPARE count</span>
-              <span><b>4</b> Approve enrollments</span>
-              <span><b>5</b> Review generated drafts</span>
-              <span><b>6</b> Type LAUNCH count</span>
+              <span><b>3</b> Confirm the preparation count</span>
+              <span><b>4</b> Approve selected recipients</span>
+              <span><b>5</b> Review personalized drafts</span>
+              <span><b>6</b> Confirm the final launch count</span>
               <span><b>7</b> Monitor replies and bounces</span>
             </div>
           </section>

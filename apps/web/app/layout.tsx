@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { BarChart3, Bot, BriefcaseBusiness, CircleHelp, Database, Mail, MessagesSquare, Radar, Rocket, Settings2, ShieldCheck } from "lucide-react";
+import { CircleHelp, Settings2 } from "lucide-react";
+import { AppNavigation } from "../components/app-navigation";
 import { NotificationCenter } from "../components/notification-center";
 import "./globals.css";
 
@@ -21,18 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <small>Revenue Intelligence</small>
               </span>
             </a>
-            <nav className="nav-list" aria-label="Main navigation">
-              <NavItem href="/" label="Overview" icon={<BarChart3 size={18} />} />
-              <NavItem href="/leads" label="Lead database" icon={<Database size={18} />} />
-              <NavItem href="/quality" label="Data quality" icon={<ShieldCheck size={18} />} />
-              <NavItem href="/inbox" label="Inbox" icon={<Mail size={18} />} />
-              <NavItem href="/communications" label="Communications" icon={<MessagesSquare size={18} />} />
-              <NavItem href="/campaigns" label="Campaign launch" icon={<Rocket size={18} />} />
-              <NavItem href="/pipeline" label="Deal pipeline" icon={<BriefcaseBusiness size={18} />} />
-              <NavItem href="/sources" label="Sources" icon={<Radar size={18} />} />
-              <NavItem href="/automation" label="Automation" icon={<Bot size={18} />} />
-              <NavItem href="/guide" label="Product guide" icon={<CircleHelp size={18} />} />
-            </nav>
+            <AppNavigation />
             <NotificationCenter />
             <div className="sidebar-footer">
               <Settings2 size={16} />
@@ -47,14 +37,5 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </div>
       </body>
     </html>
-  );
-}
-
-function NavItem({ href, label, icon }: { href: string; label: string; icon: React.ReactNode }) {
-  return (
-    <a href={href} className="nav-item">
-      {icon}
-      <span>{label}</span>
-    </a>
   );
 }

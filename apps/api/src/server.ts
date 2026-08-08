@@ -18,6 +18,7 @@ import { queueCompanyEnrichment, queueInitialSourcePipeline } from "./queues.js"
 import { registerCommunicationRoutes } from "./communications.js";
 import { registerPhase9BRoutes } from "./communications-phase9b.js";
 import { registerPhase9CRoutes } from "./communications-phase9c.js";
+import { registerIntelligenceRoutes } from "./intelligence.js";
 
 const prisma = new PrismaClient();
 const app = Fastify({ logger: true, bodyLimit: 11 * 1024 * 1024 });
@@ -155,6 +156,13 @@ app.get("/companies/:id", async (request, reply) => {
         orderBy: { latestMessageAt: "desc" },
         include: {
           participants: true,
+          intelligenceSummary: true,
+          intelligence: { orderBy: { createdAt: "desc" }, take: 5 },
+          recommendedActions: { where: { status: "PENDING" }, orderBy: { createdAt: "desc" }, take: 5 },
+          objections: { where: { status: { in: ["DETECTED", "UNRESOLVED", "DEAL_BLOCKER"] } }, orderBy: { createdAt: "desc" }, take: 5 },
+          meetingIntents: { orderBy: { createdAt: "desc" }, take: 3 },
+          suggestedReplies: { orderBy: { createdAt: "desc" }, take: 5 },
+          salesTasks: { where: { status: { in: ["OPEN", "IN_PROGRESS"] } }, orderBy: { dueAt: "asc" }, take: 5 },
           messages: {
             orderBy: { createdAt: "asc" },
             include: { recipients: true, attachments: true, events: { orderBy: { occurredAt: "asc" } }, approval: true, schedule: true }
@@ -475,6 +483,7 @@ app.get("/companies/export.csv", async (request, reply) => {
 await registerCommunicationRoutes(app, prisma);
 await registerPhase9BRoutes(app, prisma);
 await registerPhase9CRoutes(app, prisma);
+await registerIntelligenceRoutes(app, prisma);
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);

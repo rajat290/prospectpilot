@@ -38,6 +38,17 @@ await communicationQueue.add(
   }
 );
 
+await communicationQueue.add(
+  JOB_NAMES.detectStalledConversations,
+  {},
+  {
+    repeat: { every: 15 * 60 * 1000 },
+    jobId: "stalled-conversation-detection",
+    removeOnComplete: 25,
+    removeOnFail: 50
+  }
+);
+
 new Worker(
   "enrichment",
   async (job) => {

@@ -13,6 +13,7 @@
     "@fastify/cors": "^9.0.1",
     "@prisma/client": "^5.16.1",
     "@prospectpilot/communications": "0.1.0",
+    "@prospectpilot/intelligence": "0.1.0",
     "@prospectpilot/shared": "0.1.0",
     "bullmq": "^5.8.7",
     "dotenv": "^16.4.5",

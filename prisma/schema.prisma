@@ -101,6 +101,13 @@ model Company {
   communicationPreferences CommunicationPreference[]
   sequenceEnrollments      SequenceEnrollment[]
   inboundReviews           InboundReview[]          @relation("InboundReviewCompany")
+  replyIntelligence        ReplyIntelligence[]
+  recommendedActions       RecommendedAction[]
+  objections               ConversationObjection[]
+  meetingIntents           MeetingIntent[]
+  suggestedReplies         SuggestedReply[]
+  salesTasks               SalesTask[]
+  aiRuns                   AiRun[]
 
   @@unique([leadSourceId, normalizedName])
   @@index([normalizedName])
@@ -342,6 +349,14 @@ model Conversation {
   participants ConversationParticipant[]
   messages     Message[]
   enrollments  SequenceEnrollment[]
+  intelligence ReplyIntelligence[]
+  intelligenceSummary ConversationSummary?
+  recommendedActions RecommendedAction[]
+  objections   ConversationObjection[]
+  meetingIntents MeetingIntent[]
+  suggestedReplies SuggestedReply[]
+  salesTasks   SalesTask[]
+  aiRuns       AiRun[]
 
   @@unique([connectionId, providerThreadId])
   @@index([companyId, latestMessageAt])
@@ -410,6 +425,13 @@ model Message {
   approval           ApprovalRequest?
   schedule           ScheduledMessage?
   inboundReview      InboundReview?
+  replyIntelligence  ReplyIntelligence?
+  recommendedActions RecommendedAction[]
+  objections         ConversationObjection[]
+  meetingIntent      MeetingIntent?
+  suggestedReplies   SuggestedReply[]             @relation("SuggestedReplySourceMessage")
+  salesTasks         SalesTask[]
+  aiRuns             AiRun[]
 
   @@unique([connectionId, providerMessageId])
   @@index([companyId, createdAt])
@@ -715,6 +737,220 @@ model CommunicationPreference {
   contact   Contact? @relation(fields: [contactId], references: [id])
 
   @@unique([companyId, contactId, channel])
+}
+
+model ReplyIntelligence {
+  id                 String                     @id @default(cuid())
+  messageId          String                     @unique
+  conversationId     String
+  companyId          String?
+  category           ReplyCategory
+  confidence         Int
+  sentiment          ReplySentiment
+  commercialIntent   CommercialIntent
+  urgency            IntelligenceUrgency
+  requiresReply      Boolean                    @default(true)
+  extractedQuestions String[]
+  evidenceMessageIds String[]
+  source             IntelligenceSource
+  reviewStatus       IntelligenceReviewStatus   @default(READY)
+  reviewedAt         DateTime?
+  reviewedBy         String?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  message      Message      @relation(fields: [messageId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  company      Company?     @relation(fields: [companyId], references: [id])
+
+  @@index([reviewStatus, createdAt])
+  @@index([commercialIntent, urgency])
+}
+
+model ConversationSummary {
+  id               String             @id @default(cuid())
+  conversationId   String             @unique
+  summary          String             @db.Text
+  currentState     String
+  pendingItems     String[]
+  throughMessageId String?
+  messageCount     Int                @default(0)
+  version          Int                @default(1)
+  source           IntelligenceSource
+  updatedAt        DateTime           @updatedAt
+  createdAt        DateTime           @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+}
+
+model RecommendedAction {
+  id                  String                   @id @default(cuid())
+  conversationId      String
+  messageId           String?
+  companyId           String?
+  action              RecommendedActionType
+  priority            ActionPriority
+  reason              String
+  deadlineAt          DateTime?
+  confidence          Int
+  requiresApproval    Boolean                  @default(true)
+  recommendedCrmStage PipelineStage?
+  status              RecommendationStatus     @default(PENDING)
+  source              IntelligenceSource
+  evidenceMessageIds  String[]
+  approvedAt          DateTime?
+  approvedBy          String?
+  resolvedAt          DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  message      Message?     @relation(fields: [messageId], references: [id])
+  company      Company?     @relation(fields: [companyId], references: [id])
+  tasks        SalesTask[]
+
+  @@index([status, priority, deadlineAt])
+  @@index([conversationId, createdAt])
+  @@unique([messageId, action])
+}
+
+model ConversationObjection {
+  id                  String             @id @default(cuid())
+  conversationId      String
+  messageId           String
+  companyId           String?
+  type                ObjectionType
+  evidenceQuote       String
+  recommendedHandling String
+  status              ObjectionStatus    @default(DETECTED)
+  confidence          Int
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  message      Message      @relation(fields: [messageId], references: [id])
+  company      Company?     @relation(fields: [companyId], references: [id])
+
+  @@unique([messageId, type])
+  @@index([conversationId, status])
+}
+
+model MeetingIntent {
+  id              String   @id @default(cuid())
+  messageId       String   @unique
+  conversationId  String
+  companyId       String?
+  dateText        String?
+  proposedAt      DateTime?
+  timeText        String?
+  timezone        String?
+  meetingType     String?
+  participants    String[]
+  agenda          String?
+  exactSlot       Boolean  @default(false)
+  confidence      Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  message      Message      @relation(fields: [messageId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  company      Company?     @relation(fields: [companyId], references: [id])
+}
+
+model SuggestedReply {
+  id                String               @id @default(cuid())
+  conversationId    String
+  sourceMessageId   String?
+  companyId         String?
+  aiRunId           String?
+  mode              SuggestedReplyMode   @default(ANSWER_QUESTIONS)
+  subject           String?
+  bodyText          String               @db.Text
+  confidence        Int
+  warnings          String[]
+  grounding         Json
+  status            SuggestedReplyStatus @default(DRAFT)
+  source            IntelligenceSource
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  conversation  Conversation @relation(fields: [conversationId], references: [id])
+  sourceMessage Message?     @relation("SuggestedReplySourceMessage", fields: [sourceMessageId], references: [id])
+  company       Company?     @relation(fields: [companyId], references: [id])
+  aiRun          AiRun?      @relation(fields: [aiRunId], references: [id])
+
+  @@index([conversationId, createdAt])
+}
+
+model SalesTask {
+  id               String         @id @default(cuid())
+  companyId        String?
+  conversationId   String?
+  sourceMessageId  String?
+  actionId         String?
+  title            String
+  description      String?
+  priority         ActionPriority
+  status           SalesTaskStatus @default(OPEN)
+  dueAt            DateTime?
+  source           String
+  completedAt      DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  company       Company?          @relation(fields: [companyId], references: [id])
+  conversation  Conversation?     @relation(fields: [conversationId], references: [id])
+  sourceMessage Message?          @relation(fields: [sourceMessageId], references: [id])
+  action        RecommendedAction? @relation(fields: [actionId], references: [id])
+
+  @@index([status, priority, dueAt])
+  @@index([conversationId, status])
+  @@unique([sourceMessageId, title])
+}
+
+model ServicePackage {
+  id                  String   @id @default(cuid())
+  name                String   @unique
+  description         String
+  currency            String   @default("USD")
+  minimumPrice         Int?
+  maximumPrice         Int?
+  deliveryMinDays     Int?
+  deliveryMaxDays     Int?
+  capabilities        String[]
+  exclusions          String[]
+  approved             Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model AiRun {
+  id                 String            @id @default(cuid())
+  feature            AiFeature
+  conversationId     String?
+  messageId          String?
+  companyId          String?
+  provider           String
+  model              String
+  promptVersion      String
+  status             AiRunStatus       @default(RUNNING)
+  inputHash          String
+  evidenceMessageIds String[]
+  output             Json?
+  warnings           String[]
+  error              String?
+  inputTokens        Int?
+  outputTokens       Int?
+  startedAt          DateTime          @default(now())
+  completedAt        DateTime?
+
+  conversation Conversation?    @relation(fields: [conversationId], references: [id])
+  message      Message?         @relation(fields: [messageId], references: [id])
+  company      Company?         @relation(fields: [companyId], references: [id])
+  suggestedReplies SuggestedReply[]
+
+  @@index([feature, status, startedAt])
+  @@index([conversationId, startedAt])
 }
 
 model OAuthState {
@@ -1177,8 +1413,10 @@ enum PipelineStage {
   OUTREACH_READY
   CONTACTED
   REPLIED
+  OPPORTUNITY
   MEETING
   PROPOSAL
+  NEGOTIATION
   WON
   LOST
   RETAINER
@@ -1199,6 +1437,8 @@ enum JobType {
   RENEW_MAILBOX_WATCH
   PROCESS_SEQUENCE
   RECONCILE_MAILBOXES
+  ANALYZE_REPLY
+  DETECT_STALLED_CONVERSATIONS
 }
 
 enum JobStatus {
@@ -1206,4 +1446,144 @@ enum JobStatus {
   RUNNING
   COMPLETE
   FAILED
+}
+
+enum ReplyCategory {
+  INTERESTED
+  PRICING_QUESTION
+  TECHNICAL_QUESTION
+  MEETING_REQUEST
+  REFERRAL
+  WRONG_CONTACT
+  NOT_INTERESTED
+  OUT_OF_OFFICE
+  UNSUBSCRIBE
+  VENDOR_SALES_MESSAGE
+  SPAM
+  UNKNOWN
+}
+
+enum ReplySentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+enum CommercialIntent {
+  HIGH
+  MEDIUM
+  LOW
+  NONE
+}
+
+enum IntelligenceUrgency {
+  URGENT
+  NORMAL
+  LOW
+}
+
+enum IntelligenceSource {
+  DETERMINISTIC
+  OPENAI
+  HYBRID
+  MANUAL
+}
+
+enum IntelligenceReviewStatus {
+  READY
+  REVIEW_REQUIRED
+  APPROVED
+  REJECTED
+}
+
+enum RecommendedActionType {
+  REPLY_NOW
+  ASK_QUALIFICATION_QUESTION
+  SEND_CALENDAR_LINK
+  PREPARE_PRICING
+  GENERATE_PROPOSAL
+  FOLLOW_UP
+  WAIT
+  DISQUALIFY
+  MARK_WRONG_CONTACT
+  ESCALATE_MANUAL_REVIEW
+  SEND_PRICING_REPLY
+  OFFER_MEETING_SLOTS
+}
+
+enum ActionPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RecommendationStatus {
+  PENDING
+  APPROVED
+  DISMISSED
+  COMPLETED
+  EXPIRED
+}
+
+enum ObjectionType {
+  PRICE
+  TIMING
+  TRUST
+  NEED_APPROVAL
+  EXISTING_VENDOR
+  NOT_PRIORITY
+  TECHNICAL_COMPATIBILITY
+  SECURITY
+  NO_BUDGET
+  SEND_INFORMATION
+  NOT_INTERESTED
+}
+
+enum ObjectionStatus {
+  DETECTED
+  RESPONDED
+  RESOLVED
+  UNRESOLVED
+  DEAL_BLOCKER
+}
+
+enum SuggestedReplyMode {
+  GENERATE_REPLY
+  SHORTEN
+  CONVERSATIONAL
+  ANSWER_QUESTIONS
+  HANDLE_OBJECTION
+  SUGGEST_MEETING
+  ADD_PRICING
+  CREATE_FOLLOW_UP
+}
+
+enum SuggestedReplyStatus {
+  DRAFT
+  APPROVED
+  REJECTED
+  USED
+}
+
+enum SalesTaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AiFeature {
+  REPLY_CLASSIFICATION
+  CONVERSATION_SUMMARY
+  SUGGESTED_REPLY
+  NEXT_BEST_ACTION
+  COMMAND_BRIEF
+}
+
+enum AiRunStatus {
+  RUNNING
+  COMPLETE
+  FAILED
+  SKIPPED
 }

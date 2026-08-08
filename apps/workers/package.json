@@ -14,6 +14,7 @@
     "@prospectpilot/crawler": "0.1.0",
     "@prospectpilot/communications": "0.1.0",
     "@prospectpilot/enrichment": "0.1.0",
+    "@prospectpilot/intelligence": "0.1.0",
     "@prospectpilot/opportunity": "0.1.0",
     "@prospectpilot/outreach": "0.1.0",
     "@prospectpilot/scoring": "0.1.0",

@@ -18,7 +18,8 @@
       "@prospectpilot/enrichment": ["packages/enrichment/src/index.ts"],
       "@prospectpilot/opportunity": ["packages/opportunity/src/index.ts"],
       "@prospectpilot/scoring": ["packages/scoring/src/index.ts"],
-      "@prospectpilot/outreach": ["packages/outreach/src/index.ts"]
+      "@prospectpilot/outreach": ["packages/outreach/src/index.ts"],
+      "@prospectpilot/intelligence": ["packages/intelligence/src/index.ts"]
     }
   }
 }
