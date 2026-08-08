@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Bot, BrainCircuit, BriefcaseBusiness, CircleHelp, Database, Mail, MessagesSquare, Radar, Rocket, ShieldCheck, Sparkles } from "lucide-react";
+import { BarChart3, Bot, BrainCircuit, BriefcaseBusiness, CircleHelp, Database, Gem, Mail, MessagesSquare, Radar, Rocket, ShieldCheck, Sparkles } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -9,6 +9,7 @@ const groups = [
     label: "Work",
     items: [
       { href: "/", label: "Today", icon: BarChart3 },
+      { href: "/overview", label: "Overview", icon: Gem },
       { href: "/leads", label: "Leads", icon: Database },
       { href: "/inbox", label: "Inbox", icon: Mail },
       { href: "/pipeline", label: "Deals", icon: BriefcaseBusiness }

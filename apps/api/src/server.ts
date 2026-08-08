@@ -19,6 +19,7 @@ import { registerCommunicationRoutes } from "./communications.js";
 import { registerPhase9BRoutes } from "./communications-phase9b.js";
 import { registerPhase9CRoutes } from "./communications-phase9c.js";
 import { registerIntelligenceRoutes } from "./intelligence.js";
+import { registerFounderMissionRoutes } from "./founder-mission.js";
 
 const prisma = new PrismaClient();
 const app = Fastify({ logger: true, bodyLimit: 11 * 1024 * 1024 });
@@ -484,6 +485,7 @@ await registerCommunicationRoutes(app, prisma);
 await registerPhase9BRoutes(app, prisma);
 await registerPhase9CRoutes(app, prisma);
 await registerIntelligenceRoutes(app, prisma);
+await registerFounderMissionRoutes(app, prisma);
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
