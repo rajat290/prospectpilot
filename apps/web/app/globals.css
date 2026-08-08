@@ -1073,17 +1073,65 @@ tbody tr:last-child td { border-bottom: 0; }
 .mission-map { background: linear-gradient(180deg, rgba(4, 15, 29, .4), transparent); }
 .map-line span { background: #0d294b; }
 .map-line span.complete { background: linear-gradient(90deg, #1187ff, #42e96d); }
-.milestone-card { border-color: #1b518b; background: linear-gradient(180deg, rgba(8, 28, 55, .95), rgba(4, 13, 25, .98)); color: #e9f6ff; box-shadow: inset 0 0 0 1px rgba(57, 152, 255, .05); }
-.milestone-card.locked { opacity: .8; }
-.milestone-card.completed { border-color: #42e96d; box-shadow: 0 0 18px rgba(66,233,109,.16); }
-.milestone-card.in-progress { border-color: #ffd15c; background: linear-gradient(180deg, rgba(42, 34, 7, .9), rgba(5, 12, 22, .98)); box-shadow: 0 0 18px rgba(255,209,92,.14); }
-.milestone-icon { border-color: #255d9f; background: #06182e; color: #59d9ff; }
-.milestone-card.in-progress .milestone-icon { border-color: #ffd15c; color: #ffd15c; }
-.milestone-card.completed .milestone-icon, .milestone-card.verified .milestone-icon { border-color: #42e96d; color: #42e96d; }
-.milestone-body p { color: #a8bdd0; }
-.milestone-money small { color: #8fa8b9; }
-.milestone-progress { background: #06182e; }
-.milestone-progress span { background: linear-gradient(90deg, #1187ff, #42e96d); }
+.mission-map-panel .panel-head h2 { display: flex; align-items: center; gap: 8px; }
+.mission-map-panel .panel-head h2::before { content: ""; width: 16px; height: 11px; border-radius: 3px; background: linear-gradient(90deg, #42e96d 0 30%, transparent 30% 38%, #59d9ff 38% 68%, transparent 68% 75%, #ffd15c 75%); box-shadow: 0 0 12px rgba(89,217,255,.35); }
+.mission-map { grid-template-columns: repeat(7, minmax(128px, 1fr)); gap: 9px; padding: 13px; }
+.map-line { display: none; }
+.milestone-card { position: relative; min-width: 128px; min-height: 178px; border-color: #1b518b; border-radius: 8px; background: radial-gradient(circle at 50% 45%, rgba(17, 135, 255, .14), transparent 38%), linear-gradient(180deg, rgba(8, 28, 55, .95), rgba(4, 13, 25, .98)); color: #e9f6ff; box-shadow: inset 0 0 0 1px rgba(57, 152, 255, .08), 0 0 15px rgba(17, 135, 255, .14); cursor: pointer; }
+.milestone-card:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px rgba(57, 152, 255, .12), 0 0 24px rgba(17, 135, 255, .24); }
+.milestone-card.locked { opacity: .86; }
+.milestone-card.completed, .milestone-card.verified { border-color: #42e96d; box-shadow: inset 0 0 0 1px rgba(66,233,109,.18), 0 0 22px rgba(66,233,109,.24); }
+.milestone-card.in-progress { border-color: #ffd15c; background: radial-gradient(circle at 50% 45%, rgba(255,209,92,.18), transparent 38%), linear-gradient(180deg, rgba(42, 34, 7, .94), rgba(5, 12, 22, .98)); box-shadow: inset 0 0 0 1px rgba(255,209,92,.16), 0 0 22px rgba(255,209,92,.22); }
+.milestone-card.at-risk { border-color: #ff5c5c; box-shadow: inset 0 0 0 1px rgba(255,92,92,.18), 0 0 22px rgba(255,92,92,.2); }
+.milestone-number { position: absolute; left: 9px; top: 8px; z-index: 2; display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid #59d9ff; border-radius: 50%; background: #071425; color: white; font-size: 13px; font-weight: 950; box-shadow: 0 0 12px rgba(89,217,255,.3); }
+.milestone-card.in-progress .milestone-number { border-color: #ffd15c; color: #ffd15c; }
+.milestone-card.completed .milestone-number, .milestone-card.verified .milestone-number { border-color: #42e96d; color: #42e96d; }
+.milestone-art { display: grid; place-items: center; height: 76px; margin-top: 20px; }
+.milestone-body { display: grid; gap: 7px; }
+.milestone-body > div:first-child { min-height: 34px; display: grid; align-items: start; }
+.milestone-body strong { color: #f5fbff; font-size: 11px; line-height: 1.2; text-align: center; }
+.milestone-money { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.milestone-money span { max-width: 82px; overflow: hidden; color: #dff3ff; font-size: 9px; white-space: nowrap; text-overflow: ellipsis; }
+.milestone-money small { color: #e9f6ff; font-size: 9px; font-weight: 900; }
+.milestone-progress { height: 6px; border: 1px solid #153d75; border-radius: 3px; background: #06182e; }
+.milestone-progress span { background: linear-gradient(90deg, #1187ff, #42e96d); box-shadow: 0 0 10px rgba(66,233,109,.35); }
+.milestone-card.in-progress .milestone-progress span { background: linear-gradient(90deg, #ffd15c, #ff8a32); }
+.milestone-card.at-risk .milestone-progress span { background: linear-gradient(90deg, #ff5c5c, #ffd15c); }
+.milestone-footer { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 25px; margin: 2px -4px -4px; border-top: 1px solid rgba(89,217,255,.2); color: #59d9ff; font-size: 9px; font-weight: 950; text-transform: uppercase; }
+.milestone-card.completed .milestone-footer, .milestone-card.verified .milestone-footer { color: #42e96d; }
+.milestone-card.in-progress .milestone-footer { color: #ffd15c; }
+.milestone-card.locked .milestone-footer { color: #7c93a8; }
+.art-phone { position: relative; width: 32px; height: 48px; border: 3px solid #7d95ff; border-radius: 5px; background: #10182d; box-shadow: inset 0 0 0 3px #091027, 0 0 16px rgba(125,149,255,.4); }
+.art-phone::before { content: ""; position: absolute; inset: 9px 5px 7px; background: repeating-linear-gradient(90deg, #ff5c80 0 5px, #59d9ff 5px 10px, #42e96d 10px 15px); opacity: .85; }
+.art-phone::after { content: ""; position: absolute; left: 12px; bottom: 3px; width: 8px; height: 2px; background: #cde7ff; }
+.art-chain { position: relative; width: 58px; height: 54px; }
+.art-chain i { position: absolute; width: 12px; height: 18px; border: 3px solid #ffd15c; border-radius: 8px; transform: rotate(24deg); box-shadow: 0 0 10px rgba(255,209,92,.35); }
+.art-chain i:nth-child(1) { left: 10px; top: 8px; }
+.art-chain i:nth-child(2) { left: 25px; top: 20px; }
+.art-chain i:nth-child(3) { left: 39px; top: 8px; }
+.art-chain b { position: absolute; left: 21px; bottom: 0; width: 20px; height: 20px; border: 3px solid #ffd15c; border-radius: 50%; background: #7a4b08; box-shadow: 0 0 14px rgba(255,209,92,.45); }
+.art-loan { position: relative; display: grid; place-items: center; width: 62px; height: 38px; border: 3px solid #bbc5d9; background: linear-gradient(180deg, #586173, #252b39); box-shadow: 0 0 15px rgba(255,92,92,.2); }
+.art-loan::before { content: ""; position: absolute; top: -12px; border-left: 31px solid transparent; border-right: 31px solid transparent; border-bottom: 12px solid #bbc5d9; }
+.art-loan i { color: white; font-size: 10px; font-style: normal; font-weight: 900; }
+.art-loan b { position: absolute; right: -11px; bottom: -6px; width: 22px; height: 22px; border-radius: 50%; background: #e84c4c; box-shadow: inset 0 -3px 0 rgba(0,0,0,.25); }
+.art-loan b::after { content: ""; position: absolute; left: 5px; top: 10px; width: 12px; height: 3px; background: white; }
+.art-bike { position: relative; width: 74px; height: 42px; }
+.art-bike i { position: absolute; bottom: 0; width: 21px; height: 21px; border: 4px solid #95b7e8; border-radius: 50%; background: #071425; }
+.art-bike i:nth-child(1) { left: 5px; }
+.art-bike i:nth-child(2) { right: 5px; }
+.art-bike b { position: absolute; left: 22px; top: 13px; width: 34px; height: 10px; border-radius: 8px 8px 2px 2px; background: #3387ff; box-shadow: 14px -8px 0 -2px #95b7e8; }
+.art-land { position: relative; display: flex; align-items: end; justify-content: center; gap: 5px; width: 76px; height: 45px; border-bottom: 8px solid #8b5a1e; background: linear-gradient(180deg, transparent 60%, #2ca65f 60%); }
+.art-land i { width: 16px; height: 24px; border-radius: 9px 9px 3px 3px; background: #42e96d; box-shadow: inset 0 -7px 0 rgba(0,0,0,.16); }
+.art-land i::after { content: ""; display: block; width: 4px; height: 15px; margin: 18px auto 0; background: #8b5a1e; }
+.art-vault { position: relative; width: 64px; height: 46px; border: 3px solid #b7c2d7; background: #2b3342; }
+.art-vault::before { content: ""; position: absolute; left: -5px; right: -5px; top: -15px; height: 15px; background: linear-gradient(135deg, transparent 0 15%, #b7c2d7 15% 25%, transparent 25% 35%, #b7c2d7 35% 45%, transparent 45% 55%, #b7c2d7 55% 65%, transparent 65% 75%, #b7c2d7 75% 85%, transparent 85%); }
+.art-vault i { position: absolute; left: 21px; top: 10px; width: 20px; height: 20px; border: 3px solid #e8edf8; border-radius: 50%; }
+.art-vault b { position: absolute; left: 6px; right: 6px; bottom: 5px; height: 5px; background: #e8edf8; }
+.art-car { position: relative; width: 76px; height: 42px; }
+.art-car i { position: absolute; left: 10px; right: 8px; top: 10px; height: 21px; border-radius: 6px 8px 3px 3px; background: #d8e3f0; box-shadow: inset 18px 0 0 #74869e, inset -10px 0 0 #74869e; }
+.art-car b::before, .art-car b::after { content: ""; position: absolute; bottom: 0; width: 16px; height: 16px; border: 4px solid #aab9cc; border-radius: 50%; background: #071425; }
+.art-car b::before { left: 12px; }
+.art-car b::after { right: 10px; }
 .boss-card { border-color: #612130; background: radial-gradient(circle at 20% 80%, rgba(180, 35, 59, .35), transparent 35%), #090d18; }
 .boss-card.final { border-color: #806218; background: radial-gradient(circle at 20% 60%, rgba(255, 209, 92, .24), transparent 35%), #090d18; }
 .achievement-grid article { border-color: #173b6a; background: rgba(4, 15, 29, .82); }

@@ -260,7 +260,7 @@ export function FreedomMissionControl({ summary }: { summary: FounderMissionSumm
 
       <section className="panel mission-map-panel">
         <div className="panel-head">
-          <h2>Seven milestone roadmap</h2>
+          <h2>Freedom Achievements - Your Quest Map</h2>
           <span>{nextMilestone ? `Next unlock: ${nextMilestone.title}` : "Mission path complete"}</span>
         </div>
         <div className="mission-map">
@@ -271,12 +271,21 @@ export function FreedomMissionControl({ summary }: { summary: FounderMissionSumm
             const Icon = iconMap[milestone.icon as keyof typeof iconMap] ?? Medal;
             return (
               <article className={`milestone-card ${milestone.status.toLowerCase().replaceAll("_", "-")}`} key={milestone.id} role="button" tabIndex={0} onClick={() => setSelectedMilestone(milestone)} onKeyDown={(event) => event.key === "Enter" ? setSelectedMilestone(milestone) : undefined}>
-                <div className="milestone-icon">{milestone.status === "LOCKED" ? <Lock size={18} /> : <Icon size={18} />}</div>
+                <div className="milestone-number">{milestone.sortOrder}</div>
+                <div className="milestone-art" data-icon={milestone.icon} aria-hidden="true">
+                  {milestone.icon === "phone" ? <span className="art-phone" /> : null}
+                  {milestone.icon === "chain" ? <span className="art-chain"><i /><i /><i /><b /></span> : null}
+                  {milestone.icon === "shield" ? <span className="art-loan"><i>LOAN</i><b /></span> : null}
+                  {milestone.icon === "bike" ? <span className="art-bike"><i /><i /><b /></span> : null}
+                  {milestone.icon === "land" ? <span className="art-land"><i /><i /><i /></span> : null}
+                  {milestone.icon === "vault" ? <span className="art-vault"><i /><b /></span> : null}
+                  {milestone.icon === "vehicle" ? <span className="art-car"><i /><b /></span> : null}
+                </div>
                 <div className="milestone-body">
-                  <div><strong>{milestone.title}</strong><Pill value={milestone.status} /></div>
-                  <p>{milestone.description}</p>
-                  <div className="milestone-money"><span>{money(milestone.allocatedAmount, hideMoney)}</span><small>of {money(milestone.targetAmount, hideMoney)}</small></div>
+                  <div><strong>{milestone.title}</strong></div>
+                  <div className="milestone-money"><span>{money(milestone.allocatedAmount, hideMoney)}</span><small>{milestone.progressPercent}%</small></div>
                   <div className="milestone-progress"><span style={{ width: `${milestone.progressPercent}%` }} /></div>
+                  <div className="milestone-footer">{milestone.status === "LOCKED" ? <Lock size={11} /> : milestone.status === "COMPLETED" || milestone.status === "VERIFIED" ? <ShieldCheck size={11} /> : <Zap size={11} />}<span>{statusLabel(milestone.status)}</span></div>
                 </div>
               </article>
             );
@@ -456,4 +465,8 @@ function buildTrack(milestones: MissionMilestone[]) {
 
 function BriefSpark() {
   return <Sparkles size={16} />;
+}
+
+function statusLabel(status: string) {
+  return status.replaceAll("_", " ");
 }
