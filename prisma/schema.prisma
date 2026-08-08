@@ -19,6 +19,293 @@ model User {
   channelConnections ChannelConnection[]
 }
 
+model FounderProfile {
+  id                   String                 @id @default(cuid())
+  displayName          String                 @default("Rajat Tomar")
+  missionName          String                 @default("Freedom Mission")
+  missionTargetAmount  Int                    @default(10000000)
+  disciplineMode       FinancialDisciplineMode @default(ADVISORY)
+  privacyModeEnabled   Boolean                @default(false)
+  reducedMotionEnabled Boolean                @default(false)
+  soundEnabled         Boolean                @default(false)
+  timezone             String                 @default("Asia/Kolkata")
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  milestones         MissionMilestone[]
+  xpLedger           XpLedger[]
+  dailyQuests        DailyQuest[]
+  streak             FounderStreak?
+  earnedAchievements EarnedAchievement[]
+  celebrations       CelebrationEvent[]
+  rewardWallet       RewardWallet?
+  rewardTransactions RewardTransaction[]
+  snapshots          FinancialSnapshot[]
+  debtAccounts       DebtAccount[]
+  debtPayments       DebtPayment[]
+  allocations        MissionAllocation[]
+  assetRecords       AssetRecord[]
+}
+
+model MissionMilestone {
+  id              String        @id @default(cuid())
+  profileId       String
+  milestoneKey    String        @unique
+  title           String
+  description     String
+  targetAmount    Int
+  allocatedAmount Int           @default(0)
+  status          MissionStatus @default(LOCKED)
+  sortOrder       Int
+  icon            String
+  rewardXp        Int           @default(1000)
+  rewardCoins     Int           @default(250)
+  note            String?
+  completedAt     DateTime?
+  verifiedAt      DateTime?
+  evidenceUrl     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  profile     FounderProfile      @relation(fields: [profileId], references: [id])
+  allocations MissionAllocation[]
+  assetRecords AssetRecord[]
+
+  @@index([profileId, sortOrder])
+  @@index([status])
+}
+
+model XpLedger {
+  id               String   @id @default(cuid())
+  profileId        String
+  eventType        String
+  sourceEntityType String
+  sourceEntityId   String?
+  baseXp           Int
+  multiplier       Float    @default(1)
+  finalXp          Int
+  reason           String
+  idempotencyKey   String   @unique
+  reversedAt       DateTime?
+  createdAt        DateTime @default(now())
+
+  profile FounderProfile @relation(fields: [profileId], references: [id])
+
+  @@index([profileId, createdAt])
+  @@index([eventType])
+}
+
+model AchievementDefinition {
+  id          String            @id @default(cuid())
+  badgeKey    String            @unique
+  name        String
+  description String
+  icon        String
+  category    String
+  rarity      AchievementRarity @default(COMMON)
+  criteria    Json
+  rewardXp    Int               @default(0)
+  rewardCoins Int               @default(0)
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  earned EarnedAchievement[]
+}
+
+model EarnedAchievement {
+  id             String   @id @default(cuid())
+  profileId      String
+  definitionId   String
+  progress       Int      @default(100)
+  evidence       Json?
+  earnedAt       DateTime @default(now())
+
+  profile    FounderProfile        @relation(fields: [profileId], references: [id])
+  definition AchievementDefinition @relation(fields: [definitionId], references: [id])
+
+  @@unique([profileId, definitionId])
+  @@index([profileId, earnedAt])
+}
+
+model DailyQuest {
+  id           String      @id @default(cuid())
+  profileId    String
+  questDate    DateTime
+  title        String
+  description  String
+  metricType   String
+  targetValue  Int
+  currentValue Int         @default(0)
+  xpReward     Int
+  coinReward   Int
+  sourceRule   String
+  status       QuestStatus @default(ACTIVE)
+  expiresAt    DateTime
+  completedAt  DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  profile FounderProfile @relation(fields: [profileId], references: [id])
+
+  @@unique([profileId, questDate, metricType])
+  @@index([status, expiresAt])
+}
+
+model FounderStreak {
+  id             String    @id @default(cuid())
+  profileId      String    @unique
+  currentDays    Int       @default(0)
+  longestDays    Int       @default(0)
+  lastQualifyingAt DateTime?
+  freezeCountThisMonth Int  @default(0)
+  weekendPauseEnabled Boolean @default(true)
+  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime  @default(now())
+
+  profile FounderProfile @relation(fields: [profileId], references: [id])
+}
+
+model CelebrationEvent {
+  id               String           @id @default(cuid())
+  profileId        String
+  level            CelebrationLevel
+  title            String
+  message          String
+  sourceEntityType String
+  sourceEntityId   String?
+  idempotencyKey   String           @unique
+  viewedAt         DateTime?
+  createdAt        DateTime         @default(now())
+
+  profile FounderProfile @relation(fields: [profileId], references: [id])
+
+  @@index([profileId, createdAt])
+  @@index([viewedAt])
+}
+
+model RewardWallet {
+  id        String   @id @default(cuid())
+  profileId String  @unique
+  balance   Int     @default(0)
+  lifetime  Int     @default(0)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  profile FounderProfile @relation(fields: [profileId], references: [id])
+}
+
+model RewardTransaction {
+  id               String   @id @default(cuid())
+  profileId        String
+  amount           Int
+  reason           String
+  sourceEntityType String
+  sourceEntityId   String?
+  idempotencyKey   String   @unique
+  reversedAt       DateTime?
+  createdAt        DateTime @default(now())
+
+  profile FounderProfile @relation(fields: [profileId], references: [id])
+
+  @@index([profileId, createdAt])
+}
+
+model FinancialSnapshot {
+  id                   String   @id @default(cuid())
+  profileId            String
+  snapshotDate         DateTime
+  grossCollectedRevenue Int     @default(0)
+  netBusinessCash      Int      @default(0)
+  debtRemaining        Int      @default(0)
+  liquidReserve        Int      @default(0)
+  missionAllocation    Int      @default(0)
+  verifiedInvestmentValue Int   @default(0)
+  personalNetProgress  Int      @default(0)
+  projectionNote       String?
+  createdAt            DateTime @default(now())
+
+  profile FounderProfile @relation(fields: [profileId], references: [id])
+
+  @@unique([profileId, snapshotDate])
+}
+
+model DebtAccount {
+  id              String   @id @default(cuid())
+  profileId       String
+  name            String
+  originalAmount  Int
+  currentBalance  Int
+  priority        Int      @default(0)
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  profile  FounderProfile @relation(fields: [profileId], references: [id])
+  payments DebtPayment[]
+
+  @@index([profileId, status])
+}
+
+model DebtPayment {
+  id             String   @id @default(cuid())
+  profileId      String
+  debtAccountId  String?
+  amount         Int
+  paidAt         DateTime @default(now())
+  evidenceUrl    String?
+  note           String?
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+
+  profile     FounderProfile @relation(fields: [profileId], references: [id])
+  debtAccount DebtAccount?   @relation(fields: [debtAccountId], references: [id])
+
+  @@index([profileId, paidAt])
+}
+
+model MissionAllocation {
+  id             String            @id @default(cuid())
+  profileId      String
+  milestoneId    String?
+  category       FinancialCategory
+  amount         Int
+  occurredAt     DateTime          @default(now())
+  source         String            @default("MANUAL")
+  evidenceUrl    String?
+  note           String?
+  verified       Boolean           @default(false)
+  idempotencyKey String            @unique
+  reversedAt     DateTime?
+  createdAt      DateTime          @default(now())
+
+  profile   FounderProfile   @relation(fields: [profileId], references: [id])
+  milestone MissionMilestone? @relation(fields: [milestoneId], references: [id])
+
+  @@index([profileId, occurredAt])
+  @@index([category])
+}
+
+model AssetRecord {
+  id           String   @id @default(cuid())
+  profileId    String
+  milestoneId  String?
+  name         String
+  assetType    String
+  verifiedValue Int
+  acquiredAt   DateTime?
+  verifiedAt   DateTime?
+  evidenceUrl  String?
+  note         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile   FounderProfile   @relation(fields: [profileId], references: [id])
+  milestone MissionMilestone? @relation(fields: [milestoneId], references: [id])
+
+  @@index([profileId, verifiedAt])
+}
+
 model LeadSource {
   id                   String       @id @default(cuid())
   userId               String?
@@ -1586,4 +1873,53 @@ enum AiRunStatus {
   COMPLETE
   FAILED
   SKIPPED
+}
+
+enum FinancialDisciplineMode {
+  ADVISORY
+  STRICT
+}
+
+enum MissionStatus {
+  LOCKED
+  AVAILABLE
+  IN_PROGRESS
+  AT_RISK
+  COMPLETED
+  VERIFIED
+  PAUSED
+}
+
+enum QuestStatus {
+  ACTIVE
+  COMPLETED
+  EXPIRED
+  PAUSED
+}
+
+enum AchievementRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum CelebrationLevel {
+  MICRO_WIN
+  COMMERCIAL_WIN
+  MAJOR_MILESTONE
+  FINAL_MISSION
+}
+
+enum FinancialCategory {
+  COLLECTED_REVENUE
+  BUSINESS_EXPENSE
+  TAX_RESERVE
+  DEBT_PAYMENT
+  EMERGENCY_RESERVE
+  PERSONAL_REWARD_FUND
+  ASSET_FUND
+  VEHICLE_FUND
+  UNALLOCATED_BALANCE
+  VERIFIED_INVESTMENT
 }
