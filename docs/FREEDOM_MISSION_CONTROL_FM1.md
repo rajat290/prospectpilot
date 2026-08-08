@@ -14,6 +14,16 @@ Freedom Mission Control is ProspectPilot's founder motivation layer. It keeps th
 - Celebration events for real actions only.
 - Guardrails that keep pipeline, deal value, collected revenue and personal freedom progress separate.
 
+## FM-2 Additions
+
+- Mission operations panel on `/overview` for recording real payments, allocations, debt payments, reserves and verified assets.
+- Milestone detail modal with pause and verification actions.
+- Celebration cards can be marked seen so one-time wins do not keep showing as new.
+- Financial trend bars and projection text from verified ledger movement.
+- Debt account and asset recording API endpoints.
+- Milestone update API for target/status/evidence changes.
+- Darker original arcade HUD direction, closer to the founder-mission reference while avoiding copied game assets.
+
 ## Product Boundary
 
 The mission layer consumes ProspectPilot events but does not mutate lead, communication or CRM records. It is not an accounting replacement and does not provide investment advice.
@@ -62,6 +72,9 @@ Every XP event uses an idempotency key so repeated page loads do not duplicate r
 [x] Reduced-motion setting disables mission animations
 [x] Dashboard uses original arcade-inspired visuals
 [x] No copyrighted game assets, characters, sounds or blocks are used
+[x] Operator can record payment/debt/allocation/asset events
+[x] Milestones can be inspected and verified from the Overview UI
+[x] Mission velocity chart and projection are visible
 ```
 
 ## Operational Note

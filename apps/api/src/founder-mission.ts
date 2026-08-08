@@ -112,6 +112,91 @@ export async function registerFounderMissionRoutes(app: FastifyInstance, prisma:
     return reply.code(201).send(await buildFounderMission(prisma));
   });
 
+  app.post("/founder-mission/debt-accounts", async (request, reply) => {
+    const profile = await ensureFoundation(prisma);
+    const body = z.object({
+      name: z.string().min(2).max(120),
+      originalAmount: z.number().int().positive(),
+      currentBalance: z.number().int().nonnegative().optional(),
+      priority: z.number().int().min(0).max(100).default(0)
+    }).parse(request.body ?? {});
+    await prisma.debtAccount.create({
+      data: {
+        profileId: profile.id,
+        name: body.name,
+        originalAmount: body.originalAmount,
+        currentBalance: body.currentBalance ?? body.originalAmount,
+        priority: body.priority
+      }
+    });
+    return reply.code(201).send(await buildFounderMission(prisma));
+  });
+
+  app.patch("/founder-mission/milestones/:key", async (request, reply) => {
+    const profile = await ensureFoundation(prisma);
+    const { key } = z.object({ key: z.string() }).parse(request.params);
+    const body = z.object({
+      targetAmount: z.number().int().positive().optional(),
+      sortOrder: z.number().int().min(1).max(50).optional(),
+      note: z.string().max(1000).nullable().optional(),
+      evidenceUrl: z.string().url().nullable().optional(),
+      status: z.enum(["LOCKED", "AVAILABLE", "IN_PROGRESS", "AT_RISK", "COMPLETED", "VERIFIED", "PAUSED"]).optional()
+    }).parse(request.body ?? {});
+    const milestone = await prisma.missionMilestone.findUnique({ where: { milestoneKey: key } });
+    if (!milestone || milestone.profileId !== profile.id) return reply.code(404).send({ message: "Mission milestone not found." });
+    await prisma.missionMilestone.update({
+      where: { id: milestone.id },
+      data: {
+        targetAmount: body.targetAmount,
+        sortOrder: body.sortOrder,
+        note: body.note,
+        evidenceUrl: body.evidenceUrl,
+        status: body.status,
+        verifiedAt: body.status === "VERIFIED" ? new Date() : undefined,
+        completedAt: body.status === "COMPLETED" || body.status === "VERIFIED" ? milestone.completedAt ?? new Date() : undefined
+      }
+    });
+    if (body.status === "VERIFIED") {
+      await awardXp(prisma, profile.id, "MISSION_VERIFIED", "MissionMilestone", milestone.id, milestone.rewardXp, `${milestone.title} mission verified with evidence.`, "MAJOR_MILESTONE");
+    }
+    await recalculateMilestones(prisma, profile.id);
+    return reply.send(await buildFounderMission(prisma));
+  });
+
+  app.post("/founder-mission/assets", async (request, reply) => {
+    const profile = await ensureFoundation(prisma);
+    const body = z.object({
+      milestoneKey: z.string().optional(),
+      name: z.string().min(2).max(160),
+      assetType: z.string().min(2).max(80),
+      verifiedValue: z.number().int().positive(),
+      acquiredAt: z.coerce.date().optional(),
+      evidenceUrl: z.string().url().optional(),
+      note: z.string().max(1000).optional()
+    }).parse(request.body ?? {});
+    const milestone = body.milestoneKey ? await prisma.missionMilestone.findUnique({ where: { milestoneKey: body.milestoneKey } }) : null;
+    const asset = await prisma.assetRecord.create({
+      data: {
+        profileId: profile.id,
+        milestoneId: milestone?.id,
+        name: body.name,
+        assetType: body.assetType,
+        verifiedValue: body.verifiedValue,
+        acquiredAt: body.acquiredAt,
+        verifiedAt: new Date(),
+        evidenceUrl: body.evidenceUrl,
+        note: body.note
+      }
+    });
+    await prisma.missionAllocation.upsert({
+      where: { idempotencyKey: `asset:${asset.id}` },
+      create: { profileId: profile.id, milestoneId: milestone?.id, category: "VERIFIED_INVESTMENT", amount: body.verifiedValue, source: "ASSET_RECORD", verified: true, note: body.note, evidenceUrl: body.evidenceUrl, idempotencyKey: `asset:${asset.id}` },
+      update: {}
+    });
+    await recalculateMilestones(prisma, profile.id);
+    return reply.code(201).send(await buildFounderMission(prisma));
+  });
+
   app.post("/founder-mission/celebrations/:id/viewed", async (request) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
     return prisma.celebrationEvent.update({ where: { id }, data: { viewedAt: new Date() } });
@@ -134,6 +219,8 @@ async function buildFounderMission(prisma: PrismaClient) {
     celebrations,
     allocations,
     debtPayments,
+    debtAccounts,
+    assets,
     wonDeals,
     pipeline,
     recentActivities
@@ -147,6 +234,8 @@ async function buildFounderMission(prisma: PrismaClient) {
     prisma.celebrationEvent.findMany({ where: { profileId: profile.id }, orderBy: { createdAt: "desc" }, take: 12 }),
     prisma.missionAllocation.findMany({ where: { profileId: profile.id, reversedAt: null }, orderBy: { occurredAt: "desc" }, take: 30 }),
     prisma.debtPayment.findMany({ where: { profileId: profile.id }, orderBy: { paidAt: "desc" }, take: 10 }),
+    prisma.debtAccount.findMany({ where: { profileId: profile.id }, orderBy: [{ priority: "desc" }, { createdAt: "asc" }] }),
+    prisma.assetRecord.findMany({ where: { profileId: profile.id }, orderBy: { createdAt: "desc" }, take: 10 }),
     prisma.crmItem.count({ where: { status: "WON" } }),
     prisma.company.count({ where: { crmItem: { status: { in: ["REPLIED", "QUALIFIED", "OPPORTUNITY", "MEETING", "PROPOSAL", "NEGOTIATION"] } } } }),
     prisma.activity.findMany({ orderBy: { createdAt: "desc" }, take: 8, include: { company: { select: { id: true, name: true } } } })
@@ -192,7 +281,15 @@ async function buildFounderMission(prisma: PrismaClient) {
       "Pipeline value never counts as personal wealth.",
       "Demo/test records and duplicate events do not create repeated XP.",
       "Financial edits are append-only ledger records."
-    ]
+    ],
+    finances: {
+      allocations,
+      debtPayments,
+      debtAccounts,
+      assets,
+      trend: buildMissionTrend(allocations, debtPayments, freshProfile.missionTargetAmount),
+      projection: buildProjection(money.freedomProgressAmount, freshProfile.missionTargetAmount, allocations, debtPayments)
+    }
   };
 }
 
@@ -466,4 +563,50 @@ function startOfDay(date: Date) {
   const value = new Date(date);
   value.setHours(0, 0, 0, 0);
   return value;
+}
+
+function buildMissionTrend(
+  allocations: Array<{ amount: number; category: string; occurredAt: Date; verified: boolean }>,
+  debtPayments: Array<{ amount: number; paidAt: Date }>,
+  target: number
+) {
+  const months = Array.from({ length: 6 }).map((_, index) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - (5 - index));
+    return { key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`, label: date.toLocaleString("en-IN", { month: "short" }), value: 0, percent: 0 };
+  });
+  for (const item of allocations) {
+    if (!item.verified) continue;
+    const key = `${item.occurredAt.getFullYear()}-${String(item.occurredAt.getMonth() + 1).padStart(2, "0")}`;
+    const month = months.find((entry) => entry.key === key);
+    if (month) month.value += item.amount;
+  }
+  for (const item of debtPayments) {
+    const key = `${item.paidAt.getFullYear()}-${String(item.paidAt.getMonth() + 1).padStart(2, "0")}`;
+    const month = months.find((entry) => entry.key === key);
+    if (month) month.value += item.amount;
+  }
+  const max = Math.max(1, ...months.map((item) => item.value), Math.floor(target / 20));
+  return months.map((item) => ({ ...item, percent: percent(item.value, max) }));
+}
+
+function buildProjection(
+  progress: number,
+  target: number,
+  allocations: Array<{ amount: number; occurredAt: Date; verified: boolean }>,
+  debtPayments: Array<{ amount: number; paidAt: Date }>
+) {
+  const now = new Date();
+  const cutoff = new Date(now);
+  cutoff.setDate(cutoff.getDate() - 90);
+  const recent = [
+    ...allocations.filter((item) => item.verified && item.occurredAt >= cutoff).map((item) => item.amount),
+    ...debtPayments.filter((item) => item.paidAt >= cutoff).map((item) => item.amount)
+  ].reduce((total, amount) => total + amount, 0);
+  const monthlyRate = Math.max(0, Math.round(recent / 3));
+  if (!monthlyRate) return { monthlyRate, monthsRemaining: null, label: "Projection starts after verified payments or allocations are recorded." };
+  const monthsRemaining = Math.max(0, Math.ceil((target - progress) / monthlyRate));
+  const projected = new Date(now);
+  projected.setMonth(projected.getMonth() + monthsRemaining);
+  return { monthlyRate, monthsRemaining, label: `Projected completion at current 90-day pace: ${projected.toLocaleString("en-IN", { month: "long", year: "numeric" })}.` };
 }

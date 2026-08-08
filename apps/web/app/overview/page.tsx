@@ -37,7 +37,15 @@ const fallback: FounderMissionSummary = {
   achievements: [],
   celebrations: [],
   recentWins: [],
-  guardrails: []
+  guardrails: [],
+  finances: {
+    allocations: [],
+    debtPayments: [],
+    debtAccounts: [],
+    assets: [],
+    trend: [],
+    projection: { monthlyRate: 0, monthsRemaining: null, label: "Projection starts after verified payments or allocations are recorded." }
+  }
 };
 
 export default async function OverviewMissionPage() {

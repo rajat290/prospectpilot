@@ -1094,6 +1094,34 @@ tbody tr:last-child td { border-bottom: 0; }
 .history-row small { color: #a8bdd0; }
 .history-row time { color: #6f8ca3; }
 .guardrail { border-bottom-color: #102d52; color: #a8bdd0; }
+.mission-actions-panel { margin-bottom: 14px; }
+.mission-actions-panel .panel-head > span, .trend-panel .panel-head > span { color: #8fa8b9; font-size: 10px; font-weight: 800; }
+.mission-actions-form { display: grid; grid-template-columns: 1fr 1fr 1fr 1.4fr auto; gap: 9px; padding: 14px; }
+.freedom-page .field, .freedom-page .select { border-color: #173b6a; background: #06182e; color: #e9f6ff; }
+.freedom-page .field::placeholder { color: #6f8ca3; }
+.freedom-page .field:focus, .freedom-page .select:focus { border-color: #42d9ff; box-shadow: 0 0 0 3px rgba(66,217,255,.12); }
+.mission-ledger-preview { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; border-top: 1px solid #102d52; padding: 11px 14px; color: #8fa8b9; font-size: 10px; }
+.mission-ledger-preview strong { color: #e9f6ff; }
+.mission-ledger-preview span { border: 1px solid #173b6a; border-radius: 12px; background: rgba(6,24,46,.8); padding: 4px 8px; }
+.trend-panel { margin-bottom: 14px; }
+.mission-bars { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; align-items: end; min-height: 210px; padding: 18px; }
+.mission-bars > div { display: grid; grid-template-rows: 130px auto auto; gap: 6px; align-items: end; text-align: center; }
+.mission-bars > div > span { display: block; width: 100%; min-height: 4px; border: 1px solid rgba(89,217,255,.35); border-radius: 5px 5px 2px 2px; background: linear-gradient(180deg, #42e96d, #1187ff); box-shadow: 0 0 14px rgba(66,233,109,.2); }
+.mission-bars strong { color: #dff3ff; font-size: 10px; }
+.mission-bars small { color: #8fa8b9; font-size: 9px; }
+.mission-modal-layer { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgba(1, 8, 16, .72); padding: 20px; }
+.mission-modal { width: min(560px, 100%); border: 1px solid #1d5dab; border-radius: 10px; background: linear-gradient(180deg, #08182d, #030914); box-shadow: 0 0 50px rgba(0,119,255,.2); padding: 18px; color: #e9f6ff; }
+.mission-modal header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.mission-modal h2 { margin: 0; font-size: 22px; }
+.mission-modal p { color: #a8bdd0; font-size: 12px; line-height: 1.6; }
+.modal-progress { height: 8px; margin: 14px 0; border-radius: 4px; background: #06182e; overflow: hidden; }
+.modal-progress span { display: block; height: 100%; background: linear-gradient(90deg, #1187ff, #42e96d); }
+.modal-facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.modal-facts > div { border: 1px solid #173b6a; border-radius: 7px; background: rgba(6,24,46,.72); padding: 10px; }
+.modal-facts small, .modal-facts strong { display: block; }
+.modal-facts small { color: #8fa8b9; font-size: 9px; text-transform: uppercase; }
+.modal-facts strong { margin-top: 5px; font-size: 13px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
 @media (max-width: 1100px) {
   .today-action-list { grid-template-columns: 1fr; }
@@ -1103,6 +1131,8 @@ tbody tr:last-child td { border-bottom: 0; }
   .freedom-hero, .freedom-grid, .mission-history { grid-template-columns: 1fr; }
   .mission-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mission-map { grid-template-columns: repeat(7, 180px); }
+  .freedom-hud, .mission-actions-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mission-actions-form .button { grid-column: 1 / -1; }
 }
 
 @media (max-width: 760px) {
@@ -1131,4 +1161,7 @@ tbody tr:last-child td { border-bottom: 0; }
   .mission-map { padding: 14px; grid-template-columns: repeat(7, 170px); }
   .map-line { left: 32px; right: 32px; top: 43px; }
   .achievement-grid { grid-template-columns: 1fr; }
+  .freedom-hud, .mission-actions-form, .mission-bars, .modal-facts { grid-template-columns: 1fr; }
+  .mission-bars > div { grid-template-rows: 80px auto auto; }
+  .modal-actions { align-items: stretch; flex-direction: column; }
 }
