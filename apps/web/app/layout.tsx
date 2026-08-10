@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CircleHelp, Settings2 } from "lucide-react";
+import { CircleHelp, Gem, Settings2 } from "lucide-react";
 import { AppNavigation } from "../components/app-navigation";
 import { NotificationCenter } from "../components/notification-center";
 import "./globals.css";
@@ -25,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <AppNavigation />
             <NotificationCenter />
             <div className="sidebar-footer">
+              <a className="footer-mission-link" href="/overview"><Gem size={15} /><span>My Freedom Mission</span></a>
               <Settings2 size={16} />
               <span>Internal workspace</span>
               <span className="live-dot" title="Local workspace" />

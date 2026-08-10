@@ -28,6 +28,7 @@ import {
 import type React from "react";
 import { useMemo, useState } from "react";
 import { apiUrl } from "../lib/api";
+import { displayTerm } from "../lib/terminology";
 import { Pill } from "./pill";
 
 export type FounderMissionSummary = {
@@ -137,8 +138,8 @@ export function FreedomMissionControl({ summary }: { summary: FounderMissionSumm
     <main className={`page freedom-page${mission.profile.reducedMotionEnabled ? " reduced-motion" : ""}`}>
       <header className="page-head freedom-head">
         <div>
-          <p className="eyebrow">Overview</p>
-          <h1>Freedom Mission Control</h1>
+          <p className="eyebrow">My Freedom Mission</p>
+          <h1>My Freedom Mission</h1>
           <p className="subtle">A gamified founder cockpit for the Rs 1 crore mission. Existing Today dashboard stays focused on daily operations.</p>
         </div>
         <div className="actions">
@@ -398,7 +399,7 @@ function MissionActions({ mission, busy, hideMoney, onSubmit }: { mission: Found
       </form>
       <div className="mission-ledger-preview">
         <strong>Latest ledger entries</strong>
-        {(mission.finances?.allocations ?? []).slice(0, 3).map((item) => <span key={item.id}>{item.category.replaceAll("_", " ").toLowerCase()} - {money(item.amount, hideMoney)}</span>)}
+        {(mission.finances?.allocations ?? []).slice(0, 3).map((item) => <span key={item.id}>{displayTerm(item.category)} - {money(item.amount, hideMoney)}</span>)}
         {!(mission.finances?.allocations ?? []).length ? <span>No financial entries yet.</span> : null}
       </div>
     </section>
@@ -468,5 +469,5 @@ function BriefSpark() {
 }
 
 function statusLabel(status: string) {
-  return status.replaceAll("_", " ");
+  return displayTerm(status);
 }

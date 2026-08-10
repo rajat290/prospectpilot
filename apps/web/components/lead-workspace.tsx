@@ -32,6 +32,7 @@ import { AttachmentLink } from "./attachment-link";
 import { MessageComposer } from "./message-composer";
 import { OutreachMessage } from "./outreach-message";
 import { Pill } from "./pill";
+import { displayTerm } from "../lib/terminology";
 
 const tabs = [
   { id: "overview", label: "Summary", icon: Target },
@@ -263,7 +264,7 @@ export function LeadWorkspace({ lead, templates = [], accounts = [] }: { lead: a
               {lead.socials?.map((social: any) => (
                 <a href={social.url} target="_blank" rel="noreferrer" key={social.id}>
                   {social.platform === "LINKEDIN" ? <Linkedin size={17} /> : <Globe2 size={17} />}
-                  <div><strong>{social.platform.replaceAll("_", " ")}</strong><p>{social.confidence}% confidence</p></div>
+                  <div><strong>{displayTerm(social.platform)}</strong><p>{social.confidence}% confidence</p></div>
                   <ArrowUpRight size={14} />
                 </a>
               ))}
@@ -293,7 +294,7 @@ export function LeadWorkspace({ lead, templates = [], accounts = [] }: { lead: a
                 {evidence.map((item: any) => (
                   <tr key={item.id}>
                     <td><strong>{item.field.replaceAll(".", " / ")}</strong><span>{item.value}</span></td>
-                    <td><span className="pill">{item.sourceType.replaceAll("_", " ")}</span>{item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noreferrer" title="Open evidence source"><ExternalLink size={13} /></a> : null}</td>
+                    <td><span className="pill">{displayTerm(item.sourceType)}</span>{item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noreferrer" title="Open evidence source"><ExternalLink size={13} /></a> : null}</td>
                     <td><ConfidenceBar value={item.confidence} /></td>
                     <td><TrustBadge status={item.trustStatus} /></td>
                     <td>{formatDate(item.observedAt)}</td>
@@ -318,8 +319,8 @@ export function LeadWorkspace({ lead, templates = [], accounts = [] }: { lead: a
                 <div className="lead-copilot-summary">
                   <div className="lead-copilot-badges"><Pill value={conversationIntelligence.category} /><Pill value={conversationIntelligence.urgency} /><span>{conversationIntelligence.confidence}% confidence</span></div>
                   {activeConversation.intelligenceSummary ? <p>{activeConversation.intelligenceSummary.summary}</p> : null}
-                  {conversationAction ? <div><strong>Next: {conversationAction.action.replaceAll("_", " ")}</strong><span>{conversationAction.reason}</span></div> : null}
-                  {activeConversation.objections?.[0] ? <div className="lead-objection"><strong>Objection: {activeConversation.objections[0].type.replaceAll("_", " ")}</strong><span>{activeConversation.objections[0].recommendedHandling}</span></div> : null}
+                  {conversationAction ? <div><strong>Next: {displayTerm(conversationAction.action)}</strong><span>{conversationAction.reason}</span></div> : null}
+                  {activeConversation.objections?.[0] ? <div className="lead-objection"><strong>Objection: {displayTerm(activeConversation.objections[0].type)}</strong><span>{activeConversation.objections[0].recommendedHandling}</span></div> : null}
                   <a className="button primary" href={`/inbox?conversation=${activeConversation.id}`}>Open Sales Copilot <ArrowUpRight size={14} /></a>
                 </div>
               ) : <div className="empty">A matched inbound reply will create commercial intent, questions, objections, and the next action here.</div>}
@@ -376,7 +377,7 @@ export function LeadWorkspace({ lead, templates = [], accounts = [] }: { lead: a
             <div className="lead-conversations">
               {lead.conversations?.map((conversation: any) => (
                 <article key={conversation.id}>
-                  <header><div><strong>{conversation.subject || "No subject"}</strong><span>{conversation.status.replaceAll("_", " ").toLowerCase()}</span></div><Pill value={conversation.status} /></header>
+                  <header><div><strong>{conversation.subject || "No subject"}</strong><span>{displayTerm(conversation.status)}</span></div><Pill value={conversation.status} /></header>
                   {conversation.messages?.map((message: any) => (
                     <div className={message.direction.toLowerCase()} key={message.id}>
                       <span>{message.direction === "INBOUND" ? "Prospect" : "You"} · {formatDate(message.receivedAt || message.sentAt || message.createdAt)}</span>
@@ -418,7 +419,7 @@ export function LeadWorkspace({ lead, templates = [], accounts = [] }: { lead: a
               {lead.activities?.map((event: any) => (
                 <div key={event.id}>
                   <span><Clock3 size={13} /></span>
-                  <div><strong>{event.summary}</strong><p>{event.type.replaceAll("_", " ")} · {formatDate(event.createdAt)}</p></div>
+                  <div><strong>{event.summary}</strong><p>{displayTerm(event.type)} · {formatDate(event.createdAt)}</p></div>
                 </div>
               ))}
               {!lead.activities?.length ? <div className="empty">No activity recorded yet.</div> : null}
@@ -454,7 +455,7 @@ function IdentityFact({ icon, label, value, mono }: { icon: React.ReactNode; lab
 }
 
 function TrustBadge({ status }: { status: string }) {
-  return <span className={`trust-badge ${status.toLowerCase()}`}><span />{status.replaceAll("_", " ")}</span>;
+  return <span className={`trust-badge ${status.toLowerCase()}`}><span />{displayTerm(status)}</span>;
 }
 
 function ConfidenceBar({ value }: { value: number }) {

@@ -5,6 +5,7 @@ import { MessageComposer } from "../../components/message-composer";
 import { Pill } from "../../components/pill";
 import { SalesCopilotActions } from "../../components/sales-copilot-actions";
 import { apiGet } from "../../lib/api";
+import { displayTerm } from "../../lib/terminology";
 
 export default async function InboxPage({ searchParams }: { searchParams: { conversation?: string; status?: string } }) {
   const filter = searchParams.status ? `?status=${encodeURIComponent(searchParams.status)}` : "";
@@ -24,8 +25,8 @@ export default async function InboxPage({ searchParams }: { searchParams: { conv
   return (
     <main className="page inbox-page">
       <header className="page-head">
-        <div><p className="eyebrow">Intelligent communication hub</p><h1>Inbox ordered by revenue action.</h1><p className="subtle">Understand each reply, approve the next move, and respond with the complete lead context beside you.</p></div>
-        <div className="actions"><a className="button" href="/copilot"><BrainCircuit size={15} /> Copilot controls</a><a className="button" href="/communications"><ShieldCheck size={15} /> Mailbox controls</a><a className="button primary" href="/leads"><Mail size={15} /> Start from a lead</a></div>
+        <div><p className="eyebrow">Inbox</p><h1>Inbox</h1><p className="subtle">Understand each reply, approve the next move, and respond with the complete lead context beside you.</p></div>
+        <div className="actions"><a className="button" href="/copilot"><BrainCircuit size={15} /> Sales Copilot</a><a className="button" href="/email-settings"><ShieldCheck size={15} /> Email settings</a><a className="button primary" href="/leads"><Mail size={15} /> Start from a lead</a></div>
       </header>
 
       <ContextHelp title="Assisted, not autonomous">
@@ -60,7 +61,7 @@ export default async function InboxPage({ searchParams }: { searchParams: { conv
             <>
               <header className="thread-head"><div><span className="lead-avatar compact"><Building2 size={17} /></span><div><h2>{selected.subject || "Conversation"}</h2><p>{selected.company?.name} · {selected.participants?.map((item: any) => item.address).join(", ")}</p></div></div><a className="button icon" href={`/leads/${selected.company?.id}`} title="Open Lead 360"><ArrowUpRight size={15} /></a></header>
               {latestIntelligence ? (
-                <div className={`reply-intelligence intelligence-${latestIntelligence.urgency.toLowerCase()}`}><MessageSquareReply size={16} /><div><strong>{latestIntelligence.category.replaceAll("_", " ")}</strong><span>{latestIntelligence.commercialIntent.toLowerCase()} intent · {latestIntelligence.sentiment.toLowerCase()} · {latestIntelligence.confidence}% confidence</span></div><Pill value={latestIntelligence.reviewStatus} /></div>
+                <div className={`reply-intelligence intelligence-${latestIntelligence.urgency.toLowerCase()}`}><MessageSquareReply size={16} /><div><strong>{displayTerm(latestIntelligence.category)}</strong><span>{displayTerm(latestIntelligence.commercialIntent)} · {latestIntelligence.sentiment.toLowerCase()} · {latestIntelligence.confidence}% confidence</span></div><Pill value={latestIntelligence.reviewStatus} /></div>
               ) : latestInbound ? <div className="reply-intelligence pending"><BrainCircuit size={16} /><div><strong>Analysis pending</strong><span>Run the copilot to calculate intent and the next action.</span></div></div> : null}
 
               {selected.intelligenceSummary ? (
@@ -77,8 +78,8 @@ export default async function InboxPage({ searchParams }: { searchParams: { conv
                 ))}
               </div>
 
-              {recommendation ? <section className="next-action-card"><div className="next-action-icon"><Gauge size={17} /></div><div><span>Next best action</span><strong>{recommendation.action.replaceAll("_", " ")}</strong><p>{recommendation.reason}</p><small>{recommendation.priority.toLowerCase()} priority · {recommendation.confidence}% confidence{recommendation.deadlineAt ? ` · due ${formatDate(recommendation.deadlineAt)}` : ""}</small></div></section> : null}
-              {selected.objections?.[0] ? <section className="objection-strip"><ShieldAlert size={16} /><div><span>Current objection</span><strong>{selected.objections[0].type.replaceAll("_", " ")}</strong><p>“{selected.objections[0].evidenceQuote}”</p><small>{selected.objections[0].recommendedHandling}</small></div></section> : null}
+              {recommendation ? <section className="next-action-card"><div className="next-action-icon"><Gauge size={17} /></div><div><span>Next best action</span><strong>{displayTerm(recommendation.action)}</strong><p>{recommendation.reason}</p><small>{displayTerm(recommendation.priority)} · {recommendation.confidence}% confidence{recommendation.deadlineAt ? ` · due ${formatDate(recommendation.deadlineAt)}` : ""}</small></div></section> : null}
+              {selected.objections?.[0] ? <section className="objection-strip"><ShieldAlert size={16} /><div><span>Current objection</span><strong>{displayTerm(selected.objections[0].type)}</strong><p>“{selected.objections[0].evidenceQuote}”</p><small>{selected.objections[0].recommendedHandling}</small></div></section> : null}
               {selected.meetingIntents?.[0] ? <section className="meeting-signal"><CalendarClock size={16} /><div><strong>Meeting intent detected</strong><span>{[selected.meetingIntents[0].dateText, selected.meetingIntents[0].timeText, selected.meetingIntents[0].timezone].filter(Boolean).join(" · ") || "Exact slot not confirmed"}</span></div></section> : null}
               {suggestion ? <section className="suggested-reply-card"><header><div><Sparkles size={15} /><strong>Suggested reply</strong></div><span>{suggestion.confidence}% grounded confidence</span></header><p>{suggestion.bodyText}</p>{suggestion.warnings?.length ? <div className="draft-warnings">{suggestion.warnings.map((warning: string) => <span key={warning}><ShieldAlert size={12} /> {warning}</span>)}</div> : null}</section> : null}
 
@@ -89,7 +90,7 @@ export default async function InboxPage({ searchParams }: { searchParams: { conv
         </div>
 
         <aside className="conversation-context">
-          {selected ? <><div className="context-company"><span className="conversation-avatar large">{selected.company?.name?.slice(0, 1)}</span><h3>{selected.company?.name}</h3><a href={`/leads/${selected.company?.id}`}>Open full Lead 360</a></div><div className="context-fact"><span>Revenue score</span><strong>{selected.company?.leadScore?.score ?? "Pending"}</strong></div><div className="context-fact"><span>Deal stage</span><strong>{selected.company?.crmItem?.status?.replaceAll("_", " ") || "Research"}</strong></div><div className="context-fact"><span>Thread state</span><Pill value={selected.status} /></div><div className="context-fact"><span>Commercial intent</span><strong>{latestIntelligence?.commercialIntent?.replaceAll("_", " ") || "Pending"}</strong></div><div className="context-fact"><span>Reply urgency</span><strong>{latestIntelligence?.urgency || "Pending"}</strong></div><div className="context-fact"><span>Questions waiting</span><strong>{latestIntelligence?.extractedQuestions?.length || 0}</strong></div>{recommendation?.recommendedCrmStage ? <div className="context-fact"><span>Recommended CRM</span><strong>{recommendation.recommendedCrmStage.replaceAll("_", " ")}</strong></div> : null}<div className="context-note"><ShieldCheck size={15} /><p>Exact contact and provider-thread matching protect lead attribution. Commercial recommendations remain operator-controlled.</p></div></> : null}
+          {selected ? <><div className="context-company"><span className="conversation-avatar large">{selected.company?.name?.slice(0, 1)}</span><h3>{selected.company?.name}</h3><a href={`/leads/${selected.company?.id}`}>Open full Lead 360</a></div><div className="context-fact"><span>Revenue score</span><strong>{selected.company?.leadScore?.score ?? "Pending"}</strong></div><div className="context-fact"><span>Deal stage</span><strong>{displayTerm(selected.company?.crmItem?.status) || "Research"}</strong></div><div className="context-fact"><span>Thread state</span><Pill value={selected.status} /></div><div className="context-fact"><span>Commercial intent</span><strong>{displayTerm(latestIntelligence?.commercialIntent) || "Pending"}</strong></div><div className="context-fact"><span>Reply urgency</span><strong>{displayTerm(latestIntelligence?.urgency) || "Pending"}</strong></div><div className="context-fact"><span>Questions waiting</span><strong>{latestIntelligence?.extractedQuestions?.length || 0}</strong></div>{recommendation?.recommendedCrmStage ? <div className="context-fact"><span>Recommended CRM</span><strong>{displayTerm(recommendation.recommendedCrmStage)}</strong></div> : null}<div className="context-note"><ShieldCheck size={15} /><p>Exact contact and provider-thread matching protect lead attribution. Commercial recommendations remain operator-controlled.</p></div></> : null}
         </aside>
       </section>
     </main>

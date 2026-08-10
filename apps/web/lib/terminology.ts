@@ -22,7 +22,7 @@ const definitions: TermDefinition[] = [
   { key: "PENDING_APPROVAL", label: "Needs approval", meaning: "A message is drafted but cannot be sent until you approve it.", nextAction: "Check the recipient, claims, offer, and wording before approving.", group: "Email" },
   { key: "AWAITING_APPROVAL", label: "Needs approval", meaning: "The campaign or action is waiting for your confirmation.", nextAction: "Review recipients and message content, then approve or reject it.", group: "Campaign" },
   { key: "APPROVED", label: "Approved", meaning: "You approved this action and it may now proceed.", nextAction: "No action is needed unless you want to cancel it before sending.", group: "Email" },
-  { key: "QUEUED", label: "Waiting to send", meaning: "The message is safely waiting for the delivery worker.", nextAction: "Wait briefly or check email operations if it remains here.", group: "Email" },
+  { key: "QUEUED", label: "Waiting to send", meaning: "The message is safely waiting for the delivery service.", nextAction: "Wait briefly or check email settings if it remains here.", group: "Email" },
   { key: "SCHEDULED", label: "Scheduled", meaning: "The message will be sent at the selected date and time.", nextAction: "You can reschedule or cancel it before the send time.", group: "Email" },
   { key: "PROVIDER_SUBMITTED", label: "Accepted by Gmail", meaning: "Gmail accepted the message for delivery, but final delivery is not yet confirmed.", nextAction: "Wait for delivery, reply, or bounce information.", group: "Email" },
   { key: "SENT", label: "Sent", meaning: "The provider sent the message successfully.", nextAction: "Wait for a reply or the next approved follow-up.", group: "Email" },
@@ -36,7 +36,7 @@ const definitions: TermDefinition[] = [
   { key: "CANCELLED", label: "Cancelled", meaning: "The action was stopped before completion.", nextAction: "No action is needed unless you intentionally want to recreate it.", group: "General" },
   { key: "READY", label: "Ready", meaning: "All required checks for this operation currently pass.", nextAction: "Review the final details and continue when you are satisfied.", group: "General" },
   { key: "BLOCKED", label: "Blocked", meaning: "A required safety, data, or setup condition is preventing this operation.", nextAction: "Open the surrounding details and resolve the listed blocker before retrying.", group: "General" },
-  { key: "PENDING", label: "Waiting", meaning: "The operation has been created but has not completed yet.", nextAction: "Wait for its worker or review the associated approval requirement.", group: "General" },
+  { key: "PENDING", label: "Waiting", meaning: "The operation has been created but has not completed yet.", nextAction: "Wait for the service to finish or review the associated approval requirement.", group: "General" },
   { key: "ACTIVE", label: "Active", meaning: "This workflow or account is currently enabled.", nextAction: "Monitor its results and pause it if conditions change.", group: "General" },
   { key: "PAUSED", label: "Paused", meaning: "The workflow is preserved but will not perform its next action.", nextAction: "Resume it only after confirming the lead and timing are still appropriate.", group: "General" },
   { key: "STOPPED", label: "Stopped", meaning: "The workflow has ended and no remaining steps should run.", nextAction: "Review the stop reason before creating any replacement workflow.", group: "General" },
@@ -66,6 +66,30 @@ const definitions: TermDefinition[] = [
   { key: "UNSUBSCRIBED", label: "Unsubscribed", meaning: "The recipient asked not to receive further outreach.", nextAction: "Do not contact this destination again.", group: "Email" },
   { key: "DO_NOT_CONTACT", label: "Do not contact", meaning: "Policy or consent state prohibits outreach to this destination.", nextAction: "Respect the block and do not try to bypass it through another campaign.", group: "Email" },
   { key: "UNMATCHED_REPLY", label: "Reply needs matching", meaning: "An incoming email could not be safely linked to an existing lead.", nextAction: "Attach it to the correct lead, create a lead, ignore it, or mark it as spam.", group: "Email" },
+  { key: "RETAINER", label: "Retainer", meaning: "The client is in an ongoing paid service relationship.", nextAction: "Track delivery, renewal risk, and expansion opportunities.", group: "Lead" },
+  { key: "RUNNING", label: "Running", meaning: "The service is actively processing this work.", nextAction: "Monitor progress and review errors only if it stalls or fails.", group: "General" },
+  { key: "IN_PROGRESS", label: "In progress", meaning: "This item is actively being worked.", nextAction: "Continue until the current collection or review step is complete.", group: "General" },
+  { key: "DONE", label: "Done", meaning: "This item has been completed.", nextAction: "Review the outcome and continue with the next priority.", group: "General" },
+  { key: "FREE_LIMITED", label: "Free with limits", meaning: "This source can be used without upfront cost but has practical limits.", group: "Data" },
+  { key: "FREE", label: "Free", meaning: "This source is available without upfront payment.", group: "Data" },
+  { key: "EASY", label: "Easy", meaning: "This source should be quick to collect from responsibly.", group: "Data" },
+  { key: "MEDIUM", label: "Medium", meaning: "This source may need extra review, rate limits, or manual checks.", group: "Data" },
+  { key: "PREMIUM", label: "Premium", meaning: "This source may require paid access or higher setup effort.", group: "Data" },
+  { key: "SEND_PRICING_REPLY", label: "Send pricing reply", meaning: "The prospect asked about price or timeline and needs a grounded response.", group: "Email" },
+  { key: "ASK_QUALIFICATION_QUESTION", label: "Ask qualification question", meaning: "A key fact is missing before a useful offer can be made.", group: "Email" },
+  { key: "SEND_CALENDAR_LINK", label: "Send calendar link", meaning: "The next useful step is scheduling a meeting.", group: "Email" },
+  { key: "PREPARE_PRICING", label: "Prepare pricing", meaning: "Pricing needs to be reviewed before sending.", group: "Campaign" },
+  { key: "GENERATE_PROPOSAL", label: "Generate proposal", meaning: "The opportunity has enough detail for a proposal draft.", group: "Campaign" },
+  { key: "FOLLOW_UP", label: "Follow up", meaning: "A controlled follow-up is due or recommended.", group: "Email" },
+  { key: "WAIT", label: "Wait", meaning: "No immediate action is required right now.", group: "General" },
+  { key: "DISQUALIFY", label: "Disqualify", meaning: "The lead does not currently fit the revenue goal.", group: "Lead" },
+  { key: "MARK_WRONG_CONTACT", label: "Mark wrong contact", meaning: "The response indicates this is not the right person or destination.", group: "Email" },
+  { key: "ESCALATE_FOR_MANUAL_REVIEW", label: "Manual review", meaning: "The system is not confident enough to recommend an automatic next step.", group: "General" },
+  { key: "DISCOVER_WEBSITE", label: "Find official website", meaning: "The system is trying to identify the company website.", group: "Data" },
+  { key: "CRAWL_SOURCE", label: "Collect source leads", meaning: "The system is collecting public businesses from a source.", group: "Data" },
+  { key: "ENRICH_COMPANY", label: "Research lead", meaning: "The system is adding public contact and business intelligence to a lead.", group: "Data" },
+  { key: "SYNC_MAILBOX", label: "Sync mailbox", meaning: "The system is checking email for new messages and delivery updates.", group: "Email" },
+  { key: "DAILY_REPORT", label: "Daily report", meaning: "The system is preparing the day summary.", group: "General" },
 
   { key: "CONFIDENCE", label: "Confidence", meaning: "How strongly the available evidence supports a specific conclusion. It is not a guarantee.", group: "General" },
   { key: "REVENUE_PRIORITY", label: "Revenue priority", meaning: "A ranking that combines trust, reachability, opportunity strength, value, and conversion likelihood.", group: "General" },
@@ -87,4 +111,9 @@ export function humanizeTerm(value: string) {
 
 export function getTerm(value: string) {
   return TERMINOLOGY[normalizeTerm(value)];
+}
+
+export function displayTerm(value?: string | null) {
+  if (!value) return "";
+  return getTerm(value)?.label ?? humanizeTerm(value);
 }

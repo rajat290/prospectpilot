@@ -2,6 +2,7 @@
 
 import { Check, Copy } from "lucide-react";
 import { useState } from "react";
+import { displayTerm } from "../lib/terminology";
 
 export function OutreachMessage({ draft }: { draft: any }) {
   const [copied, setCopied] = useState(false);
@@ -22,5 +23,5 @@ export function OutreachMessage({ draft }: { draft: any }) {
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
   }
-  return <div className="message"><div className="message-head"><strong>{draft.channel.replaceAll("_", " ")}</strong><button className="button" onClick={copy} type="button">{copied ? <Check size={13} /> : <Copy size={13} />}{copied ? "Copied" : "Copy"}</button></div>{draft.subject ? <strong style={{ display: "block", marginBottom: 8 }}>{draft.subject}</strong> : null}{draft.body}</div>;
+  return <div className="message"><div className="message-head"><strong>{displayTerm(draft.channel)}</strong><button className="button" onClick={copy} type="button">{copied ? <Check size={13} /> : <Copy size={13} />}{copied ? "Copied" : "Copy"}</button></div>{draft.subject ? <strong style={{ display: "block", marginBottom: 8 }}>{draft.subject}</strong> : null}{draft.body}</div>;
 }

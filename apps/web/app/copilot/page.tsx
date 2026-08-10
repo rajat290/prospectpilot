@@ -14,7 +14,7 @@ export default async function CopilotPage() {
   return (
     <main className="page copilot-page">
       <header className="page-head">
-        <div><p className="eyebrow">Communication intelligence</p><h1>Sales Copilot control room.</h1><p className="subtle">Review uncertain decisions, approve commercial boundaries, and inspect what the system recommends next.</p></div>
+        <div><p className="eyebrow">Sales Copilot</p><h1>Sales Copilot</h1><p className="subtle">Review uncertain decisions, approve commercial boundaries, and inspect what the system recommends next.</p></div>
         <div className="actions"><IntelligenceBackfillControl /><a className="button primary" href="/inbox"><Sparkles size={15} /> Open intelligent inbox</a></div>
       </header>
 

@@ -1,4 +1,4 @@
-import { Plus, Radar } from "lucide-react";
+import { Crosshair, Plus, Radar } from "lucide-react";
 import { SourceManager } from "../../components/source-manager";
 import { apiGet } from "../../lib/api";
 import { ContextHelp } from "../../components/context-help";
@@ -8,7 +8,7 @@ export default async function SourcesPage() {
   return (
     <main className="page">
       <header className="page-head">
-        <div><p className="eyebrow">Source manager</p><h1>Directory ingestion</h1><p className="subtle">Each connector produces normalized companies for the same enrichment pipeline.</p></div>
+        <div><p className="eyebrow">Find leads</p><h1>Find leads</h1><p className="subtle">Choose where leads come from, run controlled discovery, and review candidates before they enter outreach.</p></div>
         <div className="actions"><span className="button"><Radar size={15} /> {sources.length} configured sources</span></div>
       </header>
       <ContextHelp title="One source, one controlled sample">
@@ -31,6 +31,12 @@ export default async function SourcesPage() {
           </div>
         </div>
       </div>
+      <section className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-head"><h2><Crosshair size={15} style={{ display: "inline", marginRight: 7 }} />Lead source strategy</h2><a className="button" href="/source-strategy">Open strategy engine</a></div>
+        <div className="panel-body">
+          <ContextHelp compact title="Multi-source intake">Use the strategy engine to create regional missions across Google search, trade shows, associations, chambers, Car-Part, Thomasnet, Europages, hospitality directories, and IndiaMART-style lanes.</ContextHelp>
+        </div>
+      </section>
     </main>
   );
 }

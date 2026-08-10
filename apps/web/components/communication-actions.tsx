@@ -4,6 +4,7 @@ import { Check, Clock3, Link2, Loader2, Pause, Play, Plus, RefreshCw, RotateCcw,
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { apiUrl } from "../lib/api";
+import { displayTerm } from "../lib/terminology";
 
 export function GmailConnectButton({ configured }: { configured: boolean }) {
   const [busy, setBusy] = useState(false);
@@ -16,7 +17,7 @@ export function GmailConnectButton({ configured }: { configured: boolean }) {
       const response = await fetch(`${apiUrl}/communications/oauth/gmail/start`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ returnUrl: "/communications" })
+        body: JSON.stringify({ returnUrl: "/email-settings" })
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || "Could not start Gmail connection");
@@ -326,7 +327,7 @@ export function SequenceActions({ sequence, leads }: { sequence: any; leads: any
         )}
       {sequence.enrollments?.map((enrollment: any) => (
         <div className="enrollment-row" key={enrollment.id}>
-          <div><strong>{enrollment.company.name}</strong><span>{enrollment.contact?.value} · step {enrollment.currentStep} · {enrollment.status.replaceAll("_", " ")}</span></div>
+          <div><strong>{enrollment.company.name}</strong><span>{enrollment.contact?.value} · step {enrollment.currentStep} · {displayTerm(enrollment.status)}</span></div>
           <div className="actions">
             {enrollment.status === "PENDING_APPROVAL" ? <button className="button icon" title="Approve enrollment" onClick={() => post(`/sequence-enrollments/${enrollment.id}/approve`)}><Check size={14} /></button> : null}
             {["ACTIVE", "AWAITING_MESSAGE_APPROVAL"].includes(enrollment.status) ? <button className="button icon" title="Pause enrollment" onClick={() => post(`/sequence-enrollments/${enrollment.id}/pause`)}><Pause size={14} /></button> : null}

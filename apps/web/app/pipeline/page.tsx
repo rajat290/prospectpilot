@@ -8,7 +8,7 @@ export default async function PipelinePage() {
   return (
     <main className="page">
       <header className="page-head">
-        <div><p className="eyebrow">CRM-lite</p><h1>Freelance deal pipeline</h1><p className="subtle">Move prospects as the conversation develops. Every change lands in the lead timeline.</p></div>
+        <div><p className="eyebrow">Deals</p><h1>Deals</h1><p className="subtle">Move leads as the conversation develops. Every change lands in the lead timeline.</p></div>
         <div className="actions"><span className="button"><BriefcaseBusiness size={15} /> {leads.length} tracked deals</span></div>
       </header>
       <ContextHelp title="Keep every conversation moving">

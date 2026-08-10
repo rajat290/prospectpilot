@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { LeadWorkspace } from "../../../components/lead-workspace";
 import { Pill } from "../../../components/pill";
 import { apiGet } from "../../../lib/api";
+import { displayTerm } from "../../../lib/terminology";
 
 export default async function LeadDetailPage({ params }: { params: { id: string } }) {
   const [lead, templates, communicationStatus] = await Promise.all([
@@ -22,7 +23,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             <div>
               <div className="lead-kicker">
                 <Pill value={lead.connectorId || "generic"} />
-                <span>{lead.trustStatus.replaceAll("_", " ").toLowerCase()}</span>
+                <span>{displayTerm(lead.trustStatus)}</span>
               </div>
               <h1>{lead.name}</h1>
               <p><MapPin size={13} /> {[lead.industry || lead.category, lead.city, lead.region, lead.country].filter(Boolean).join(" | ") || "Business classification pending"}</p>

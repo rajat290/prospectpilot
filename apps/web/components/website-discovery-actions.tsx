@@ -49,11 +49,11 @@ export function WebsiteDiscoveryActions({
           <p className="subtle">
             {configured
               ? `${provider} connected · ${missingWebsites} leads still need an official website`
-              : `${provider} adapter ready · add SEARCH_PROVIDER_API_KEY to the root .env file`}
+              : "Website discovery is not connected yet. Ask the workspace admin to enable the search provider."}
           </p>
           {message ? <p className="subtle" style={{ color: message.includes("queued") ? "#16815f" : "#b7443f" }}>{message}</p> : null}
         </div>
-        <span className={`pill ${configured ? "complete" : "review"}`}>{configured ? "CONNECTED" : "KEY REQUIRED"}</span>
+        <span className={`pill ${configured ? "complete" : "review"}`}>{configured ? "Connected" : "Setup needed"}</span>
         <button className="button primary" disabled={!configured || busy || missingWebsites === 0} onClick={discover}>
           <Search size={14} /> {busy ? "Queueing..." : "Discover 25 websites"}
         </button>

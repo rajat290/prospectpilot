@@ -4,6 +4,7 @@ import { Check, CheckCircle2, FileCheck2, RefreshCw, Sparkles, ThumbsDown, WandS
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { apiUrl } from "../lib/api";
+import { displayTerm } from "../lib/terminology";
 
 const modes = [
   ["ANSWER_QUESTIONS", "Answer questions"],
@@ -66,7 +67,7 @@ export function SalesCopilotActions({
       {recommendation?.status === "PENDING" ? (
         <div className="copilot-approval-row">
           <button className="button primary" disabled={Boolean(busy)} onClick={() => act("approve", `/recommended-actions/${recommendation.id}/approve`)}>
-            <Check size={14} /> Approve action{recommendation.recommendedCrmStage ? ` + ${recommendation.recommendedCrmStage.replaceAll("_", " ")}` : ""}
+            <Check size={14} /> Approve action{recommendation.recommendedCrmStage ? ` + ${displayTerm(recommendation.recommendedCrmStage)}` : ""}
           </button>
           <button className="button" disabled={Boolean(busy)} onClick={() => act("dismiss", `/recommended-actions/${recommendation.id}/dismiss`)}>
             <ThumbsDown size={14} /> Dismiss

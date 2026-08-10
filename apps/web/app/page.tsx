@@ -15,7 +15,7 @@ type Stats = {
   opportunityGroups: Array<{ category: string; _count: number }>;
 };
 
-export default async function OverviewPage() {
+export default async function TodayPage() {
   const [stats, leads, sources, reports, commandBrief] = await Promise.all([
     apiGet<Stats>("/dashboard", {
       sources: 0, companies: 0, contacts: 0, audited: 0, hotLeads: 0, outreachReady: 0, remindersDue: 0, jobs: [], opportunityGroups: []
@@ -41,8 +41,8 @@ export default async function OverviewPage() {
     <main className="page">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Daily command center</p>
-          <h1>Good leads, ready for action.</h1>
+          <p className="eyebrow">Today</p>
+          <h1>Today</h1>
           <p className="subtle">Review today&apos;s intelligence, move the best prospects, and keep the pipeline honest.</p>
         </div>
         <div className="actions">
@@ -126,7 +126,7 @@ export default async function OverviewPage() {
                   <Fact label="Phones" value={report.phonesFound} />
                   <Fact label="Failures" value={report.failedJobs} />
                 </div>
-              ) : <div className="empty">Daily report will appear after the worker runs.</div>}
+              ) : <div className="empty">Daily report will appear after the next automation run.</div>}
               {report?.bestLeadName ? <div className="notice" style={{ marginTop: 14 }}>Best lead: <strong>{report.bestLeadName}</strong> at {report.bestLeadScore}/100. Top category: {report.topOpportunity || "pending"}.</div> : null}
             </div>
           </div>

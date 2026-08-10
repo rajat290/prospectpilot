@@ -31,7 +31,7 @@ export function SourceManager({ mode, source }: { mode: "create" | "row"; source
           ? data.queued
             ? "Existing source reused. A fresh crawl has been queued."
             : "This source is already running, so no duplicate job was created."
-          : "Source saved. Worker will update progress automatically."
+          : "Source saved. Progress will update automatically."
       );
       router.refresh();
     } catch (error) {

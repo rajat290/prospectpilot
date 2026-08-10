@@ -2,6 +2,7 @@ import { ArrowRight, BadgeDollarSign, Crosshair, DatabaseZap, Gauge, Globe2, Lis
 import { apiGet } from "../../lib/api";
 import { Pill } from "../../components/pill";
 import { CandidateCaptureForm, DiscoverTaskLeadsButton, First100MissionButton, GlobalIntakeButton, MissionBatchDiscoveryButton, PromoteCandidateButton, TaskStatusButton } from "../../components/source-strategy-actions";
+import { displayTerm } from "../../lib/terminology";
 
 export const dynamic = "force-dynamic";
 
@@ -42,9 +43,9 @@ export default async function SourceStrategyPage() {
     <main className="page">
       <section className="page-head">
         <div>
-          <p className="eyebrow">Source Strategy</p>
-          <h1>10000000 journey lead engine</h1>
-          <p className="page-subtitle">A business-first source layer for aggressive lead collection without confusing volume with deal quality.</p>
+          <p className="eyebrow">Find leads</p>
+          <h1>Find leads</h1>
+          <p className="page-subtitle">Multi-source lead collection for the Rs 1 crore revenue goal, without confusing volume with deal quality.</p>
         </div>
         <div className="source-head-actions">
           <GlobalIntakeButton />
@@ -54,7 +55,7 @@ export default async function SourceStrategyPage() {
 
       <section className="source-strategy-hero">
         <div>
-          <span><Sparkles size={15} /> Mission rule</span>
+          <span><Sparkles size={15} /> Collection rule</span>
           <h2>{strategy.mission || "Aggressive but disciplined real lead collection."}</h2>
           <p>{strategy.rule || "Optimize for real company, reachable contact, visible pain, deal potential and responsible outreach."}</p>
         </div>
@@ -72,9 +73,14 @@ export default async function SourceStrategyPage() {
         <Metric label="Avg top score" value={average(strikeNow.map((item: SourceStrategy) => item.totalScore))} icon={<Gauge size={17} />} />
       </section>
 
+      <nav className="source-tabs" aria-label="Lead source strategy sections">
+        <a href="#active-collection">Active collection</a>
+        <a href="#source-catalog">Sources</a>
+      </nav>
+
       <section className="source-strategy-layout">
         <div className="source-strategy-main">
-          <section className="panel">
+          <section className="panel" id="active-collection">
             <div className="panel-head"><h2><DatabaseZap size={16} /> Collection engine</h2><span className="panel-count">{missions.length ? `${totalCaptured} captured / ${totalPromoted} promoted` : "Not started"}</span></div>
             <div className="panel-body">
               {missions.length ? (
@@ -87,14 +93,14 @@ export default async function SourceStrategyPage() {
                 </div>
               ) : (
                 <div className="source-engine-empty">
-                  <strong>No active 100-lead mission yet.</strong>
-                  <span>Click Start 100-lead mission. ProspectPilot will generate lane-wise collection tasks from this strategy map.</span>
+                  <strong>No active 100-lead collection batch yet.</strong>
+                  <span>Click Start 100-lead batch. ProspectPilot will generate lane-wise collection tasks from this strategy map.</span>
                 </div>
               )}
             </div>
           </section>
 
-          <section className="panel">
+          <section className="panel" id="source-catalog">
             <div className="panel-head"><h2><Target size={16} /> First 100 real leads mix</h2><span className="panel-count">Campaign 1</span></div>
             <div className="panel-body first-mix">
               {(strategy.immediateMix || []).map((item: any) => (
@@ -123,8 +129,8 @@ export default async function SourceStrategyPage() {
                     <tr key={source.id}>
                       <td><strong>{source.name}</strong><small>{source.category}</small></td>
                       <td><Pill value={source.priority} /></td>
-                      <td>{label(source.cost)}</td>
-                      <td>{label(source.ease)}</td>
+                      <td>{displayTerm(source.cost)}</td>
+                      <td>{displayTerm(source.ease)}</td>
                       <td>{source.leadQualityScore}</td>
                       <td>{source.dealPotentialScore}</td>
                       <td><span>{source.nextAction}</span></td>
@@ -139,12 +145,13 @@ export default async function SourceStrategyPage() {
         <aside className="source-strategy-side">
           <section className="panel">
             <div className="panel-head"><h2><ShieldCheck size={16} /> Scoring</h2></div>
-            <div className="panel-body strategy-score-list">
+            <details className="panel-body strategy-score-list">
+              <summary>Show scoring weights</summary>
               <Score label="Reliability" value={strategy.scoringWeights?.reliability || 25} />
               <Score label="Lead quality" value={strategy.scoringWeights?.leadQuality || 30} />
               <Score label="Deal potential" value={strategy.scoringWeights?.dealPotential || 30} />
               <Score label="Speed" value={strategy.scoringWeights?.speed || 15} />
-            </div>
+            </details>
           </section>
 
           <section className="panel">
@@ -153,7 +160,7 @@ export default async function SourceStrategyPage() {
               {freeEasy.slice(0, 10).map((source: SourceStrategy) => (
                 <a href={`#${source.id}`} key={source.id}>
                   <strong>{source.name}</strong>
-                  <span>{label(source.cost)} · {label(source.ease)} · score {source.totalScore}</span>
+                  <span>{displayTerm(source.cost)} · {displayTerm(source.ease)} · score {source.totalScore}</span>
                 </a>
               ))}
             </div>
@@ -248,8 +255,8 @@ function SourceCard({ source, featured = false }: { source: SourceStrategy; feat
       </header>
       <div className="source-badges">
         <Pill value={source.priority} />
-        <b>{label(source.cost)}</b>
-        <b>{label(source.ease)}</b>
+        <b>{displayTerm(source.cost)}</b>
+        <b>{displayTerm(source.ease)}</b>
       </div>
       <p>{source.acquisitionMethod}</p>
       <div className="source-score-grid">
@@ -285,8 +292,4 @@ function Metric({ label, value, icon }: { label: string; value: number; icon: Re
 function average(values: number[]) {
   if (!values.length) return 0;
   return Math.round(values.reduce((total, value) => total + value, 0) / values.length);
-}
-
-function label(value: string) {
-  return value.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

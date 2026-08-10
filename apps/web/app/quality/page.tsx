@@ -15,7 +15,7 @@ export default async function QualityPage() {
   return (
     <main className="page">
       <header className="page-head">
-        <div><p className="eyebrow">Lead intelligence spine</p><h1>Data quality control center</h1><p className="subtle">Every uncertain field should be visible, attributable, and reviewable.</p></div>
+        <div><p className="eyebrow">Data quality</p><h1>Data quality</h1><p className="subtle">Every uncertain field should be visible, attributable, and reviewable.</p></div>
         <div className="actions"><a className="button primary" href="/leads?trustStatus=VERIFIED"><ShieldCheck size={14} /> Verified leads</a></div>
       </header>
 

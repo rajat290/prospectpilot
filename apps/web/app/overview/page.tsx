@@ -50,5 +50,10 @@ const fallback: FounderMissionSummary = {
 
 export default async function OverviewMissionPage() {
   const summary = await apiGet<FounderMissionSummary>("/founder-mission", fallback);
-  return <FreedomMissionControl summary={summary} />;
+  return (
+    <>
+      <div className="freedom-explainer">My Freedom Mission is your personal founder progress tracker. It is separate from lead, client, and campaign data.</div>
+      <FreedomMissionControl summary={summary} />
+    </>
+  );
 }

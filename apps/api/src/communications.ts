@@ -75,7 +75,7 @@ export async function registerCommunicationRoutes(app: FastifyInstance, prisma: 
         message: "Gmail OAuth needs GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, and COMMUNICATION_ENCRYPTION_KEY."
       });
     }
-    const body = z.object({ returnUrl: z.string().default("/communications") }).parse(request.body ?? {});
+    const body = z.object({ returnUrl: z.string().default("/email-settings") }).parse(request.body ?? {});
     const state = randomBytes(32).toString("base64url");
     await prisma.oAuthState.create({
       data: {
@@ -557,7 +557,7 @@ function sha256(value: string) {
 }
 
 function safeReturnUrl(value: string) {
-  return value.startsWith("/") && !value.startsWith("//") ? value : "/communications";
+  return value.startsWith("/") && !value.startsWith("//") ? value : "/email-settings";
 }
 
 function safeTokenEquals(value: string, expected: string) {

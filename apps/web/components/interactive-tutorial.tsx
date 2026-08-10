@@ -87,7 +87,7 @@ const steps = [
     eyebrow: "Step 8",
     icon: Database,
     body: "Status badges explain themselves when you hover or focus them. The glossary below gives the plain meaning and tells you what to do next for every important operational term.",
-    tasks: ["Hover a status for instant help", "Search the glossary by technical word", "Use Advanced navigation only when operating or diagnosing the system"],
+    tasks: ["Hover a status for instant help", "Search the glossary by technical word", "Use Email settings or Automation only when operating or diagnosing the system"],
     action: { href: "/guide#glossary", label: "Open glossary" }
   }
 ];

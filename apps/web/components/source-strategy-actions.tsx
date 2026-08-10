@@ -20,15 +20,15 @@ export function First100MissionButton() {
     });
     const payload = await response.json();
     setBusy(false);
-    if (!response.ok) return setMessage(payload.message || "Mission creation failed.");
-    setMessage(payload.reused ? "Mission already exists. Continue collecting." : "First 100 lead mission created.");
+    if (!response.ok) return setMessage(payload.message || "Collection setup failed.");
+    setMessage(payload.reused ? "Collection batch already exists. Continue collecting." : "First 100 lead batch created.");
     router.refresh();
   }
 
   return (
     <div className="source-engine-action">
       <button className="button primary" disabled={busy} onClick={createMission}>
-        {busy ? <Loader2 className="spin" size={15} /> : <Target size={15} />} Start 100-lead mission
+        {busy ? <Loader2 className="spin" size={15} /> : <Target size={15} />} Start 100-lead batch
       </button>
       {message ? <span>{message}</span> : null}
     </div>
@@ -52,7 +52,7 @@ export function GlobalIntakeButton() {
     setBusy(false);
     if (!response.ok) return setMessage(payload.message || "Global intake setup failed.");
     const added = (payload.missions || []).reduce((total: number, mission: any) => total + (mission.addedTaskCount || 0), 0);
-    setMessage(`Global intake ready: ${payload.missionCount} missions, ${added} new lanes added.`);
+    setMessage(`Global intake ready: ${payload.missionCount} collection groups, ${added} new lanes added.`);
     router.refresh();
   }
 
@@ -89,7 +89,7 @@ export function MissionBatchDiscoveryButton({ mission }: { mission: any }) {
   return (
     <div className="source-engine-action compact-action">
       <button className="button primary" disabled={busy} onClick={runBatch}>
-        {busy ? <Loader2 className="spin" size={14} /> : <Search size={14} />} Run mission batch
+        {busy ? <Loader2 className="spin" size={14} /> : <Search size={14} />} Run collection batch
       </button>
       {message ? <span>{message}</span> : null}
     </div>

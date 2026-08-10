@@ -3,6 +3,7 @@ import { Pill } from "../../components/pill";
 import { WebsiteDiscoveryActions } from "../../components/website-discovery-actions";
 import { ContextHelp } from "../../components/context-help";
 import { apiGet, apiUrl } from "../../lib/api";
+import { displayTerm } from "../../lib/terminology";
 
 type SearchParams = {
   q?: string;
@@ -28,8 +29,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
   return (
     <main className="page">
       <header className="page-head">
-        <div><p className="eyebrow">Lead database</p><h1>Qualified prospect inventory</h1><p className="subtle">{leads.length} records in this view. Filter tightly before outreach.</p></div>
-        <div className="actions"><a className="button" href={`${apiUrl}/companies/export.csv?${query}`}><Download size={15} /> Export this view</a><a className="button primary" href="/sources">Add source</a></div>
+        <div><p className="eyebrow">Leads</p><h1>Leads</h1><p className="subtle">{leads.length} records in this view. Filter tightly before outreach.</p></div>
+        <div className="actions"><a className="button" href={`${apiUrl}/companies/export.csv?${query}`}><Download size={15} /> Export this view</a><a className="button primary" href="/sources">Find leads</a></div>
       </header>
 
       <ContextHelp title="Fastest way to build an outreach list">
@@ -48,7 +49,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
         <select className="select" name="sourceId" defaultValue={searchParams.sourceId || ""}><option value="">All sources</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.name || new URL(source.url).hostname}</option>)}</select>
         <select className="select" name="trustStatus" defaultValue={searchParams.trustStatus || ""}><option value="">Any trust state</option><option value="VERIFIED">Verified</option><option value="PROBABLE">Probable</option><option value="UNVERIFIED">Unverified</option><option value="CONFLICTING">Conflicting</option><option value="STALE">Stale</option></select>
         <select className="select" name="scoreBand" defaultValue={searchParams.scoreBand || ""}><option value="">Any sales score</option><option value="HOT">Hot</option><option value="QUALIFIED">Qualified</option><option value="REVIEW">Needs review</option><option value="LOW">Low</option></select>
-        <select className="select" name="pipelineStage" defaultValue={searchParams.pipelineStage || ""}><option value="">Any pipeline stage</option>{["NEW","RESEARCH","QUALIFIED","OUTREACH_READY","CONTACTED","REPLIED","MEETING","PROPOSAL","WON","LOST","RETAINER"].map((stage) => <option key={stage} value={stage}>{stage.replaceAll("_", " ")}</option>)}</select>
+        <select className="select" name="pipelineStage" defaultValue={searchParams.pipelineStage || ""}><option value="">Any pipeline stage</option>{["NEW","RESEARCH","QUALIFIED","OUTREACH_READY","CONTACTED","REPLIED","MEETING","PROPOSAL","WON","LOST","RETAINER"].map((stage) => <option key={stage} value={stage}>{displayTerm(stage)}</option>)}</select>
         <select className="select" name="hasContact" defaultValue={searchParams.hasContact || ""}><option value="">Any contact state</option><option value="true">Has contact</option><option value="false">Contact missing</option></select>
         <select className="select" name="hasIssues" defaultValue={searchParams.hasIssues || ""}><option value="">Any quality state</option><option value="false">No open issues</option><option value="true">Needs review</option></select>
         <button className="button primary"><Filter size={14} /> Apply</button>
