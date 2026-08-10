@@ -1187,6 +1187,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .source-strategy-score strong { color: var(--green); font-size: 48px; line-height: 1; }
 .source-strategy-score small { max-width: 160px; color: var(--muted); font-size: 8px; line-height: 1.5; }
 .source-strategy-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.source-head-actions { display: flex; gap: 8px; align-items: flex-start; justify-content: flex-end; flex-wrap: wrap; }
 .source-strategy-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
 .source-strategy-main, .source-strategy-side { display: grid; gap: 14px; min-width: 0; }
 .first-mix { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
@@ -1228,10 +1229,16 @@ tbody tr:last-child td { border-bottom: 0; }
 .source-shortlist span { color: var(--muted); font-size: 8px; }
 .source-engine-action { display: grid; gap: 6px; justify-items: end; }
 .source-engine-action span { color: var(--muted); font-size: 8px; }
+.source-engine-action.compact-action span { max-width: 180px; text-align: right; }
 .source-engine-empty { display: grid; gap: 6px; border: 1px dashed var(--line); border-radius: 8px; padding: 18px; color: var(--muted); }
 .source-engine-empty strong { color: var(--ink); font-size: 14px; }
+.source-engine-stack { display: grid; gap: 16px; }
+.source-engine-note { display: grid; gap: 4px; border: 1px solid #b7decf; border-radius: 8px; padding: 11px 12px; background: #f4fbf8; color: var(--muted); }
+.source-engine-note strong { color: var(--ink); font-size: 12px; }
+.source-engine-note span { font-size: 9px; line-height: 1.45; }
 .source-engine { display: grid; gap: 12px; }
 .source-engine > header, .engine-task > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.mission-header-actions { display: flex; gap: 8px; align-items: flex-start; justify-content: flex-end; flex-wrap: wrap; }
 .source-engine > header strong, .engine-task > header strong { display: block; font-size: 13px; }
 .source-engine > header span, .engine-task > header span { display: block; margin-top: 4px; color: var(--muted); font-size: 8px; line-height: 1.4; }
 .engine-progress { height: 9px; overflow: hidden; border: 1px solid var(--line); border-radius: 999px; background: #edf4f1; }

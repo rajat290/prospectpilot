@@ -35,6 +35,67 @@ export function First100MissionButton() {
   );
 }
 
+export function GlobalIntakeButton() {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function createGlobalIntake() {
+    setBusy(true);
+    setMessage("");
+    const response = await fetch(`${apiUrl}/source-strategy/missions/global-intake`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({})
+    });
+    const payload = await response.json();
+    setBusy(false);
+    if (!response.ok) return setMessage(payload.message || "Global intake setup failed.");
+    const added = (payload.missions || []).reduce((total: number, mission: any) => total + (mission.addedTaskCount || 0), 0);
+    setMessage(`Global intake ready: ${payload.missionCount} missions, ${added} new lanes added.`);
+    router.refresh();
+  }
+
+  return (
+    <div className="source-engine-action">
+      <button className="button" disabled={busy} onClick={createGlobalIntake}>
+        {busy ? <Loader2 className="spin" size={15} /> : <GlobeIcon />} Multi-source intake
+      </button>
+      {message ? <span>{message}</span> : null}
+    </div>
+  );
+}
+
+export function MissionBatchDiscoveryButton({ mission }: { mission: any }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function runBatch() {
+    setBusy(true);
+    setMessage("");
+    const response = await fetch(`${apiUrl}/source-strategy/missions/${mission.id}/discover-batch`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ taskLimit: 4, patternsPerTask: 1, resultLimit: 5 })
+    });
+    const payload = await response.json();
+    setBusy(false);
+    if (!response.ok) return setMessage(payload.message || "Batch discovery failed.");
+    setMessage(`Batch pulled ${payload.totals?.created || 0}; rejected ${payload.totals?.rejected || 0}; skipped ${payload.totals?.skipped || 0}.`);
+    router.refresh();
+  }
+
+  return (
+    <div className="source-engine-action compact-action">
+      <button className="button primary" disabled={busy} onClick={runBatch}>
+        {busy ? <Loader2 className="spin" size={14} /> : <Search size={14} />} Run mission batch
+      </button>
+      {message ? <span>{message}</span> : null}
+    </div>
+  );
+}
+
 export function TaskStatusButton({ task }: { task: any }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -156,4 +217,8 @@ export function PromoteCandidateButton({ candidate }: { candidate: any }) {
       {message ? <span>{message}</span> : null}
     </div>
   );
+}
+
+function GlobeIcon() {
+  return <Target size={15} />;
 }

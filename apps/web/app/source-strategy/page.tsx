@@ -1,7 +1,7 @@
 import { ArrowRight, BadgeDollarSign, Crosshair, DatabaseZap, Gauge, Globe2, ListChecks, Radar, ShieldCheck, Sparkles, Target } from "lucide-react";
 import { apiGet } from "../../lib/api";
 import { Pill } from "../../components/pill";
-import { CandidateCaptureForm, DiscoverTaskLeadsButton, First100MissionButton, PromoteCandidateButton, TaskStatusButton } from "../../components/source-strategy-actions";
+import { CandidateCaptureForm, DiscoverTaskLeadsButton, First100MissionButton, GlobalIntakeButton, MissionBatchDiscoveryButton, PromoteCandidateButton, TaskStatusButton } from "../../components/source-strategy-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +35,8 @@ export default async function SourceStrategyPage() {
   const strikeNow = strategy.strikeNow || [];
   const sources = strategy.sources || [];
   const freeEasy = sources.filter((source: SourceStrategy) => ["FREE", "FREE_LIMITED"].includes(source.cost) && ["EASY", "MEDIUM"].includes(source.ease));
-  const activeMission = missions[0];
+  const totalCaptured = missions.reduce((total, mission) => total + (mission.collectedCount || 0), 0);
+  const totalPromoted = missions.reduce((total, mission) => total + (mission.promotedCount || 0), 0);
 
   return (
     <main className="page">
@@ -45,7 +46,10 @@ export default async function SourceStrategyPage() {
           <h1>10000000 journey lead engine</h1>
           <p className="page-subtitle">A business-first source layer for aggressive lead collection without confusing volume with deal quality.</p>
         </div>
-        <First100MissionButton />
+        <div className="source-head-actions">
+          <GlobalIntakeButton />
+          <First100MissionButton />
+        </div>
       </section>
 
       <section className="source-strategy-hero">
@@ -71,9 +75,17 @@ export default async function SourceStrategyPage() {
       <section className="source-strategy-layout">
         <div className="source-strategy-main">
           <section className="panel">
-            <div className="panel-head"><h2><DatabaseZap size={16} /> Collection engine</h2><span className="panel-count">{activeMission ? `${activeMission.collectedCount}/${activeMission.targetCount}` : "Not started"}</span></div>
+            <div className="panel-head"><h2><DatabaseZap size={16} /> Collection engine</h2><span className="panel-count">{missions.length ? `${totalCaptured} captured / ${totalPromoted} promoted` : "Not started"}</span></div>
             <div className="panel-body">
-              {activeMission ? <MissionEngine mission={activeMission} /> : (
+              {missions.length ? (
+                <div className="source-engine-stack">
+                  <div className="source-engine-note">
+                    <strong>Captured leads live here first.</strong>
+                    <span>Review candidates below and click Promote to move a company into the main Leads/CRM pipeline.</span>
+                  </div>
+                  {missions.map((mission: any) => <MissionEngine key={mission.id} mission={mission} />)}
+                </div>
+              ) : (
                 <div className="source-engine-empty">
                   <strong>No active 100-lead mission yet.</strong>
                   <span>Click Start 100-lead mission. ProspectPilot will generate lane-wise collection tasks from this strategy map.</span>
@@ -161,7 +173,10 @@ function MissionEngine({ mission }: { mission: any }) {
           <strong>{mission.name}</strong>
           <span>{mission.market || "Target market"} · {mission.offer || "Offer"}</span>
         </div>
-        <Pill value={mission.status} />
+        <div className="mission-header-actions">
+          <Pill value={mission.status} />
+          <MissionBatchDiscoveryButton mission={mission} />
+        </div>
       </header>
       <div className="engine-progress">
         <span style={{ width: `${progress}%` }} />

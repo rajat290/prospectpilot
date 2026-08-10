@@ -21,6 +21,20 @@ type SerpResponse = {
   organic_results?: SerpResult[];
 };
 
+type MissionBlueprint = {
+  name: string;
+  targetCount: number;
+  market: string;
+  offer: string;
+  tasks: Array<{
+    sourceStrategyId: string;
+    lane: string;
+    priority: string;
+    targetCount: number;
+    searchPatterns: string[];
+  }>;
+};
+
 const sourceStrategies = [
   {
     id: "google-manual-business-search",
@@ -97,6 +111,54 @@ const sourceStrategies = [
     expectedFields: ["Company", "Member profile", "Website", "Phone", "Address", "Category", "Association URL"],
     risk: "Contact email coverage varies; some directories are phone/address heavy.",
     nextAction: "Use for 20 high-trust prospects when local search needs cross-checking."
+  },
+  {
+    id: "car-part-automotive-recyclers",
+    name: "Car-Part automotive recycler directory",
+    category: "Niche automotive directory",
+    priority: "STRIKE_NOW",
+    cost: "FREE",
+    ease: "MEDIUM",
+    reliabilityScore: 84,
+    leadQualityScore: 86,
+    dealPotentialScore: 88,
+    speedScore: 76,
+    bestMarkets: ["United States", "Canada"],
+    bestIndustries: ["Automotive recyclers", "Used auto parts", "Salvage yards", "Auto dismantlers"],
+    bestOffers: ["Inventory inquiry workflow", "Quote routing", "CRM follow-up", "Website conversion", "Parts request automation"],
+    acquisitionMethod: "Use public dealer/state pages as discovery, then verify each recycler from its official website before outreach.",
+    searchPatterns: [
+      'site:car-part.com/Services/dealers.htm "Recycler"',
+      'site:car-part.com/Services/dealerSt.htm "United States" "Auto"',
+      '"site:car-part.com" "used auto parts" "email"'
+    ],
+    expectedFields: ["Recycler", "Website", "Phone", "Address", "City", "State", "Inventory link", "Dealer URL"],
+    risk: "Directory data can be mature/competitive; treat as automotive niche lane, not only source.",
+    nextAction: "Use as one automotive-focused lane while broader service/B2B lanes keep running."
+  },
+  {
+    id: "ara-directory",
+    name: "Automotive Recyclers Association directory",
+    category: "Verified industry association",
+    priority: "STRIKE_NOW",
+    cost: "FREE_LIMITED",
+    ease: "MEDIUM",
+    reliabilityScore: 86,
+    leadQualityScore: 85,
+    dealPotentialScore: 86,
+    speedScore: 72,
+    bestMarkets: ["United States", "Canada", "Australia", "United Kingdom"],
+    bestIndustries: ["Automotive recyclers", "Dismantlers", "Parts suppliers"],
+    bestOffers: ["Member portal", "Inventory request workflow", "B2B quote automation", "CRM routing"],
+    acquisitionMethod: "Use association/member search pages where public, then verify official company website and contacts.",
+    searchPatterns: [
+      'site:a-r-a.org/directory "recycler" "website"',
+      '"automotive recyclers association" "member directory" "Canada"',
+      '"auto recyclers" "member directory" "United States"'
+    ],
+    expectedFields: ["Company", "Member profile", "Website", "Phone", "Location", "Association URL"],
+    risk: "Some member data may be hidden or directory-first; official website verification is required.",
+    nextAction: "Use as a trust cross-check source for auto recycler campaigns."
   },
   {
     id: "chambers-of-commerce",
@@ -361,6 +423,54 @@ const sourceStrategies = [
     expectedFields: ["Company", "Website", "Country", "Products", "Phone", "Email", "Directory URL"],
     risk: "Language differences and email coverage vary; localization may be needed.",
     nextAction: "Use after first US/Canada campaign, especially for high-ticket B2B."
+  },
+  {
+    id: "thomasnet-industrial",
+    name: "Thomasnet industrial suppliers",
+    category: "US industrial supplier directory",
+    priority: "NEXT",
+    cost: "FREE_LIMITED",
+    ease: "MEDIUM",
+    reliabilityScore: 80,
+    leadQualityScore: 82,
+    dealPotentialScore: 84,
+    speedScore: 72,
+    bestMarkets: ["United States", "Canada"],
+    bestIndustries: ["Manufacturing", "Industrial suppliers", "Machining", "Packaging", "B2B distributors"],
+    bestOffers: ["Quote request workflow", "Distributor CRM", "Catalog automation", "Lead routing", "ERP-lite dashboards"],
+    acquisitionMethod: "Use category/company pages for discovery, then enrich from official company websites.",
+    searchPatterns: [
+      'site:thomasnet.com "request a quote" "manufacturer" "Texas"',
+      'site:thomasnet.com "contact" "machining" "Ohio"',
+      '"Thomasnet" "manufacturer" "request quote" "United States"'
+    ],
+    expectedFields: ["Company", "Website", "Category", "Phone", "Location", "Directory URL"],
+    risk: "Directory pages are useful for discovery but official website/contact validation decides promotion.",
+    nextAction: "Use for higher-ticket US manufacturing and supplier campaigns."
+  },
+  {
+    id: "hotel-restaurant-directories",
+    name: "Hotel/restaurant supplier directories",
+    category: "Hospitality and food service",
+    priority: "NEXT",
+    cost: "FREE",
+    ease: "MEDIUM",
+    reliabilityScore: 72,
+    leadQualityScore: 74,
+    dealPotentialScore: 76,
+    speedScore: 78,
+    bestMarkets: ["UAE", "Qatar", "Saudi Arabia", "United Kingdom", "Australia", "United States"],
+    bestIndustries: ["Hotels", "Restaurants", "Caterers", "Food suppliers", "Hospitality vendors"],
+    bestOffers: ["Booking/intake workflow", "Supplier ordering portal", "CRM follow-up", "Review automation"],
+    acquisitionMethod: "Search public hospitality/vendor pages and verify official business websites.",
+    searchPatterns: [
+      '"hotel supplier" "contact us" "Dubai"',
+      '"restaurant group" "contact us" "Qatar"',
+      '"catering company" "request quote" "London"'
+    ],
+    expectedFields: ["Company", "Website", "Email", "Phone", "City", "Country", "Service category"],
+    risk: "Some hospitality searches return blogs/listicles; filter to official websites before outreach.",
+    nextAction: "Use for Middle East and UK hospitality campaigns once direct-business filters are applied."
   }
 ] as const;
 
@@ -457,6 +567,86 @@ export async function registerSourceStrategyRoutes(app: FastifyInstance, prisma:
     return reply.code(201).send(mission);
   });
 
+  app.post("/source-strategy/missions/global-intake", async (request, reply) => {
+    const blueprints = globalIntakeBlueprints();
+    const missions = [];
+    for (const blueprint of blueprints) {
+      const existing = await prisma.sourceCollectionMission.findFirst({
+        where: { name: blueprint.name },
+        include: { tasks: true, candidates: { orderBy: { createdAt: "desc" }, take: 30 } }
+      });
+      if (existing) {
+        const existingKeys = new Set(existing.tasks.map((task) => `${task.sourceStrategyId}:${task.lane}`));
+        const missingTasks = blueprint.tasks.filter((task) => !existingKeys.has(`${task.sourceStrategyId}:${task.lane}`));
+        const updated = missingTasks.length
+          ? await prisma.sourceCollectionMission.update({
+              where: { id: existing.id },
+              data: {
+                targetCount: Math.max(existing.targetCount, blueprint.targetCount),
+                market: blueprint.market,
+                offer: blueprint.offer,
+                notes: "Updated by the multi-source global intake engine. Each lane uses a different source family so ProspectPilot does not depend on one directory.",
+                tasks: { create: missingTasks.map((task) => buildTaskCreate(task, blueprint)) }
+              },
+              include: { tasks: true, candidates: { orderBy: { createdAt: "desc" }, take: 30 } }
+            })
+          : existing;
+        missions.push({ ...updated, reused: !missingTasks.length, addedTaskCount: missingTasks.length });
+        continue;
+      }
+      missions.push(await prisma.sourceCollectionMission.create({
+        data: {
+          name: blueprint.name,
+          targetCount: blueprint.targetCount,
+          market: blueprint.market,
+          offer: blueprint.offer,
+          notes: "Created by the multi-source global intake engine. Each lane uses a different source family so ProspectPilot does not depend on one directory.",
+          tasks: {
+            create: blueprint.tasks.map((task) => buildTaskCreate(task, blueprint))
+          }
+        },
+        include: { tasks: true, candidates: { orderBy: { createdAt: "desc" }, take: 30 } }
+      }));
+    }
+    return reply.code(missions.some((mission: any) => !mission.reused) ? 201 : 200).send({
+      missionCount: missions.length,
+      reusedCount: missions.filter((mission: any) => mission.reused).length,
+      missions
+    });
+  });
+
+  app.post("/source-strategy/missions/:id/discover-batch", async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params);
+    const body = z.object({
+      taskLimit: z.coerce.number().int().min(1).max(12).default(3),
+      patternsPerTask: z.coerce.number().int().min(1).max(3).default(1),
+      resultLimit: z.coerce.number().int().min(1).max(8).default(5)
+    }).parse(request.body ?? {});
+    const mission = await prisma.sourceCollectionMission.findUnique({
+      where: { id },
+      include: { tasks: { orderBy: [{ status: "asc" }, { updatedAt: "asc" }] } }
+    });
+    if (!mission) return reply.code(404).send({ message: "Collection mission not found." });
+    if (!env.searchProviderApiKey) {
+      return reply.code(409).send({ message: "Batch discovery needs SEARCH_PROVIDER_API_KEY in .env." });
+    }
+    const tasks = mission.tasks.filter((task) => task.status !== "DONE").slice(0, body.taskLimit);
+    const runs = [];
+    for (const task of tasks) {
+      for (const query of task.searchPatterns.slice(0, body.patternsPerTask)) {
+        const result = await discoverTaskCandidates(prisma, task.id, query, body.resultLimit);
+        runs.push({ taskId: task.id, lane: task.lane, ...result });
+      }
+    }
+    const totals = runs.reduce((acc, run) => {
+      acc.created += run.createdCount;
+      acc.skipped += run.skippedCount;
+      acc.rejected += run.rejectedCount;
+      return acc;
+    }, { created: 0, skipped: 0, rejected: 0 });
+    return { missionId: id, runCount: runs.length, totals, runs };
+  });
+
   app.patch("/source-strategy/tasks/:id", async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const body = z.object({ status: z.enum(["OPEN", "IN_PROGRESS", "BLOCKED", "DONE"]) }).parse(request.body);
@@ -478,72 +668,7 @@ export async function registerSourceStrategyRoutes(app: FastifyInstance, prisma:
     }
     const query = body.query || task.searchPatterns[0];
     if (!query) return reply.code(409).send({ message: "This lane has no search pattern to run." });
-    const results = await searchLeadCandidates(query, body.limit);
-    const created = [];
-    const skipped = [];
-    for (const result of results) {
-      if (!result.link) continue;
-      const websiteUrl = safeOrigin(result.link);
-      const existing = await prisma.sourceCandidateLead.findFirst({
-        where: {
-          missionId: task.missionId,
-          OR: [
-            websiteUrl ? { websiteUrl } : undefined,
-            { sourceUrl: result.link }
-          ].filter(Boolean) as any
-        },
-        select: { id: true, companyName: true }
-      });
-      if (existing) {
-        skipped.push({ reason: "duplicate", title: result.title, url: result.link });
-        continue;
-      }
-      const contact = await tryExtractPublicContact(result.link);
-      const companyName = cleanCompanyTitle(result.title, result.link);
-      const payload = {
-        missionId: task.missionId,
-        taskId: task.id,
-        companyName,
-        websiteUrl,
-        email: contact.email,
-        phone: contact.phone,
-        country: inferCountryFromQuery(query, task.mission.market),
-        industry: inferIndustryFromQuery(query),
-        sourceUrl: result.link,
-        painEvidence: result.snippet || `Discovered from search query: ${query}`,
-        recommendedOffer: task.mission.offer,
-        notes: `Search result title: ${result.title || "Untitled"}`,
-        qualityScore: scoreCandidate({
-          websiteUrl: websiteUrl ?? undefined,
-          email: contact.email,
-          phone: contact.phone,
-          sourceUrl: result.link,
-          painEvidence: result.snippet,
-          recommendedOffer: task.mission.offer ?? undefined,
-          country: inferCountryFromQuery(query, task.mission.market),
-          industry: inferIndustryFromQuery(query)
-        })
-      };
-      const candidate = await prisma.sourceCandidateLead.create({
-        data: {
-          ...payload,
-          status: payload.qualityScore >= 72 ? "QUALIFIED" : "NEEDS_RESEARCH"
-        }
-      });
-      created.push(candidate);
-    }
-    await refreshMissionProgress(prisma, task.missionId, task.id);
-    await prisma.sourceCollectionTask.update({
-      where: { id: task.id },
-      data: { status: created.length ? "IN_PROGRESS" : task.status }
-    });
-    return {
-      query,
-      createdCount: created.length,
-      skippedCount: skipped.length,
-      created,
-      skipped
-    };
+    return discoverTaskCandidates(prisma, task.id, query, body.limit);
   });
 
   app.post("/source-strategy/tasks/:id/candidates", async (request, reply) => {
@@ -665,6 +790,85 @@ export async function registerSourceStrategyRoutes(app: FastifyInstance, prisma:
   });
 }
 
+async function discoverTaskCandidates(prisma: PrismaClient, taskId: string, query: string, limit: number) {
+  const task = await prisma.sourceCollectionTask.findUnique({ where: { id: taskId }, include: { mission: true } });
+  if (!task) throw new Error("Collection task not found.");
+  const results = await searchLeadCandidates(query, limit);
+  const created = [];
+  const skipped = [];
+  const rejected = [];
+  for (const result of results) {
+    if (!result.link) continue;
+    const websiteUrl = safeOrigin(result.link);
+    const existing = await prisma.sourceCandidateLead.findFirst({
+      where: {
+        missionId: task.missionId,
+        OR: [
+          websiteUrl ? { websiteUrl } : undefined,
+          { sourceUrl: result.link }
+        ].filter(Boolean) as any
+      },
+      select: { id: true, companyName: true }
+    });
+    if (existing) {
+      skipped.push({ reason: "duplicate", title: result.title, url: result.link });
+      continue;
+    }
+    const contact = await tryExtractPublicContact(result.link);
+    const companyName = cleanCompanyTitle(result.title, result.link);
+    const country = inferCountryFromQuery(query, task.mission.market);
+    const industry = inferIndustryFromQuery(query);
+    const qualityScore = scoreCandidate({
+      companyName,
+      websiteUrl: websiteUrl ?? undefined,
+      email: contact.email,
+      phone: contact.phone,
+      sourceUrl: result.link,
+      painEvidence: result.snippet,
+      recommendedOffer: task.mission.offer ?? undefined,
+      country,
+      industry
+    });
+    if (qualityScore < 45 || isClearlyNonBusinessResult(companyName, result.link, result.snippet)) {
+      rejected.push({ reason: "low-quality-or-non-business", title: result.title, url: result.link, qualityScore });
+      continue;
+    }
+    const candidate = await prisma.sourceCandidateLead.create({
+      data: {
+        missionId: task.missionId,
+        taskId: task.id,
+        companyName,
+        websiteUrl,
+        email: contact.email,
+        phone: contact.phone,
+        country,
+        industry,
+        sourceUrl: result.link,
+        painEvidence: result.snippet || `Discovered from search query: ${query}`,
+        recommendedOffer: task.mission.offer,
+        notes: `Search result title: ${result.title || "Untitled"}`,
+        qualityScore,
+        status: qualityScore >= 78 && contact.email && websiteUrl ? "QUALIFIED" : "NEEDS_RESEARCH"
+      }
+    });
+    created.push(candidate);
+  }
+  await refreshMissionProgress(prisma, task.missionId, task.id);
+  await prisma.sourceCollectionTask.update({
+    where: { id: task.id },
+    data: { status: created.length ? "IN_PROGRESS" : task.status }
+  });
+  return {
+    query,
+    createdCount: created.length,
+    skippedCount: skipped.length,
+    rejectedCount: rejected.length,
+    created,
+    skipped,
+    rejected
+  };
+}
+
 async function searchLeadCandidates(query: string, limit: number) {
   const params = new URLSearchParams({
     engine: "google",
@@ -698,8 +902,8 @@ async function tryExtractPublicContact(url: string) {
     const html = await response.text();
     const contacts = extractContactsFromHtml(html.slice(0, 750_000), url);
     return {
-      email: contacts.emails[0]?.value,
-      phone: contacts.phones[0]?.value
+      email: contacts.emails.map((email) => email.value).find(isUsableEmail),
+      phone: contacts.phones.map((phone) => phone.value).find(isUsablePhone)
     };
   } catch {
     return {};
@@ -717,12 +921,14 @@ function cleanCompanyTitle(title: string | undefined, url: string) {
 
 function inferCountryFromQuery(query: string, missionMarket?: string | null) {
   const haystack = `${query} ${missionMarket || ""}`.toLowerCase();
+  if (/\bindia|mumbai|bandra|bkc|gurgaon|bengaluru|bangalore|hyderabad\b/.test(haystack)) return "India";
+  if (/\baustralia|sydney|melbourne|brisbane|perth\b/.test(haystack)) return "Australia";
   if (/\bcanada|ontario|toronto|vancouver\b/.test(haystack)) return "Canada";
   if (/\bdubai|uae|abu dhabi\b/.test(haystack)) return "UAE";
   if (/\bqatar|doha\b/.test(haystack)) return "Qatar";
   if (/\bsaudi|riyadh|jeddah\b/.test(haystack)) return "Saudi Arabia";
   if (/\buk|united kingdom|london|britain\b/.test(haystack)) return "United Kingdom";
-  if (/\bgermany|france|italy|spain|switzerland\b/.test(haystack)) return "Europe";
+  if (/\bgermany|france|italy|spain|switzerland|netherlands|amsterdam|manchester\b/.test(haystack)) return "Europe";
   return "United States";
 }
 
@@ -735,7 +941,7 @@ function inferIndustryFromQuery(query: string) {
 function isBlockedDiscoveryHost(url: string) {
   const host = safeHost(url);
   if (!host) return true;
-  const blocked = ["facebook.com", "instagram.com", "youtube.com", "pinterest.com", "wikipedia.org", "reddit.com"];
+  const blocked = ["facebook.com", "instagram.com", "youtube.com", "pinterest.com", "wikipedia.org", "reddit.com", "scribd.com"];
   return blocked.some((item) => host === item || host.endsWith(`.${item}`));
 }
 
@@ -770,6 +976,332 @@ function rankedSources() {
     .sort((left, right) => right.totalScore - left.totalScore);
 }
 
+function buildTaskCreate(task: MissionBlueprint["tasks"][number], mission: Pick<MissionBlueprint, "market" | "offer">) {
+  const strategy = sourceStrategies.find((source) => source.id === task.sourceStrategyId);
+  return {
+    sourceStrategyId: task.sourceStrategyId,
+    lane: task.lane,
+    priority: task.priority,
+    targetCount: task.targetCount,
+    searchPatterns: task.searchPatterns,
+    instructions: [
+      strategy?.acquisitionMethod || "Collect public company records and verify official website/contact before outreach.",
+      `Market: ${mission.market}`,
+      `Offer: ${mission.offer}`,
+      strategy ? `Best industries: ${strategy.bestIndustries.join(", ")}` : undefined,
+      strategy ? `Required fields: ${strategy.expectedFields.join(", ")}` : undefined,
+      strategy ? `Risk: ${strategy.risk}` : undefined
+    ].filter(Boolean).join("\n"),
+    nextAction: strategy?.nextAction || "Run discovery, review candidates, promote outreach-ready companies."
+  };
+}
+
+function globalIntakeBlueprints(): MissionBlueprint[] {
+  return [
+    {
+      name: "Lead Intake - United States",
+      targetCount: 120,
+      market: "United States: Texas, Florida, California, New York, Ohio, Arizona",
+      offer: "Quote, booking, CRM routing and missed-lead follow-up automation",
+      tasks: [
+        {
+          sourceStrategyId: "google-manual-business-search",
+          lane: "US direct business sites - roofing/HVAC/dental/legal",
+          priority: "PHASE_0",
+          targetCount: 45,
+          searchPatterns: [
+            '"request an estimate" "HVAC" "Dallas"',
+            '"contact us" "commercial roofing" "Florida"',
+            '"book appointment" "dental clinic" "Austin"'
+          ]
+        },
+        {
+          sourceStrategyId: "thomasnet-industrial",
+          lane: "US industrial suppliers - Thomasnet/search",
+          priority: "NEXT",
+          targetCount: 25,
+          searchPatterns: [
+            'site:thomasnet.com "request a quote" "manufacturer" "Texas"',
+            'site:thomasnet.com "contact" "machining" "Ohio"',
+            '"industrial supplier" "request quote" "United States"'
+          ]
+        },
+        {
+          sourceStrategyId: "car-part-automotive-recyclers",
+          lane: "US automotive recyclers - Car-Part/ARA",
+          priority: "STRIKE_NOW",
+          targetCount: 25,
+          searchPatterns: [
+            'site:car-part.com "used auto parts" "Texas"',
+            '"automotive recycler" "contact us" "United States"',
+            'site:a-r-a.org/directory "recycler" "United States"'
+          ]
+        },
+        {
+          sourceStrategyId: "chambers-of-commerce",
+          lane: "US chamber and association directories",
+          priority: "NEXT",
+          targetCount: 25,
+          searchPatterns: [
+            '"chamber of commerce" "member directory" "roofing" "Texas"',
+            '"member directory" "contractors association" "Florida"',
+            '"business directory" "HVAC" "Arizona"'
+          ]
+        }
+      ]
+    },
+    {
+      name: "Lead Intake - Canada",
+      targetCount: 95,
+      market: "Canada: Ontario, Toronto, Vancouver, Calgary",
+      offer: "Lead intake, quote routing, booking workflow and CRM automation",
+      tasks: [
+        {
+          sourceStrategyId: "google-manual-business-search",
+          lane: "Canada direct business sites - HVAC/dental/manufacturing",
+          priority: "PHASE_0",
+          targetCount: 40,
+          searchPatterns: [
+            '"HVAC contractor" "request estimate" "Ontario"',
+            '"contact us" "dental clinic" "Toronto"',
+            '"request a quote" "manufacturer" "Ontario"'
+          ]
+        },
+        {
+          sourceStrategyId: "industry-associations",
+          lane: "Canada associations and member directories",
+          priority: "STRIKE_NOW",
+          targetCount: 25,
+          searchPatterns: [
+            '"member directory" "contractors association" "Canada"',
+            '"roofing association" "member directory" "Canada"',
+            '"manufacturing association" "member directory" "Ontario"'
+          ]
+        },
+        {
+          sourceStrategyId: "car-part-automotive-recyclers",
+          lane: "Canada automotive recyclers",
+          priority: "NEXT",
+          targetCount: 15,
+          searchPatterns: [
+            '"auto recyclers" "contact us" "Canada"',
+            'site:car-part.com "Canada" "used auto parts"',
+            '"automotive recycler" "Ontario" "email"'
+          ]
+        },
+        {
+          sourceStrategyId: "yellow-pages",
+          lane: "Canada local directories fallback",
+          priority: "NEXT",
+          targetCount: 15,
+          searchPatterns: [
+            '"Yellow Pages" "HVAC" "Toronto" "website"',
+            '"business directory" "dentist" "Vancouver"',
+            '"commercial cleaning" "contact us" "Calgary"'
+          ]
+        }
+      ]
+    },
+    {
+      name: "Lead Intake - Middle East",
+      targetCount: 120,
+      market: "Middle East: UAE, Qatar, Saudi Arabia, Oman, Israel",
+      offer: "B2B quote workflow, CRM routing, lead follow-up and operations dashboard",
+      tasks: [
+        {
+          sourceStrategyId: "google-manual-business-search",
+          lane: "Middle East direct business sites - construction/facility/hospitality",
+          priority: "PHASE_0",
+          targetCount: 45,
+          searchPatterns: [
+            '"construction company" "request quote" "Dubai"',
+            '"request quote" "facility management" "Dubai"',
+            '"contact us" "manufacturing" "Qatar"'
+          ]
+        },
+        {
+          sourceStrategyId: "trade-show-exhibitors",
+          lane: "Middle East trade-show exhibitor lists",
+          priority: "STRIKE_NOW",
+          targetCount: 30,
+          searchPatterns: [
+            '"exhibitor list" "Dubai" "construction"',
+            '"exhibitor list" "Qatar" "hospitality"',
+            '"trade show exhibitors" "Saudi" "manufacturing"'
+          ]
+        },
+        {
+          sourceStrategyId: "hotel-restaurant-directories",
+          lane: "Middle East hospitality and supplier directories",
+          priority: "NEXT",
+          targetCount: 25,
+          searchPatterns: [
+            '"hotel supplier" "contact us" "Dubai"',
+            '"restaurant group" "contact us" "Qatar"',
+            '"catering company" "request quote" "Saudi Arabia"'
+          ]
+        },
+        {
+          sourceStrategyId: "industry-associations",
+          lane: "Middle East chambers and associations",
+          priority: "NEXT",
+          targetCount: 20,
+          searchPatterns: [
+            '"Dubai Chamber" "member directory"',
+            '"Qatar Chamber" "member directory"',
+            '"Saudi chamber" "business directory"'
+          ]
+        }
+      ]
+    },
+    {
+      name: "Lead Intake - UK Europe",
+      targetCount: 110,
+      market: "UK and Europe: Britain, Germany, France, Italy, Spain, Switzerland, Netherlands, Baltic nations",
+      offer: "B2B quote automation, distributor CRM, catalog workflow and sales follow-up systems",
+      tasks: [
+        {
+          sourceStrategyId: "google-manual-business-search",
+          lane: "UK/Europe direct business sites",
+          priority: "PHASE_0",
+          targetCount: 40,
+          searchPatterns: [
+            '"request a quote" "engineering company" "Manchester"',
+            '"contact us" "manufacturer" "Netherlands"',
+            '"request a quote" "manufacturer" "Germany"'
+          ]
+        },
+        {
+          sourceStrategyId: "europages-global-b2b",
+          lane: "Europages and European B2B suppliers",
+          priority: "NEXT",
+          targetCount: 30,
+          searchPatterns: [
+            '"Europages" "manufacturer" "Germany" "website"',
+            '"industrial supplier" "request quote" "France"',
+            '"B2B distributor" "contact us" "Italy"'
+          ]
+        },
+        {
+          sourceStrategyId: "trade-show-exhibitors",
+          lane: "Europe trade-show exhibitors",
+          priority: "STRIKE_NOW",
+          targetCount: 25,
+          searchPatterns: [
+            '"exhibitor list" "Germany" "manufacturing"',
+            '"trade show exhibitors" "France" "industrial"',
+            '"exhibitors" "Italy" "packaging"'
+          ]
+        },
+        {
+          sourceStrategyId: "industry-associations",
+          lane: "UK/Europe associations and member lists",
+          priority: "NEXT",
+          targetCount: 15,
+          searchPatterns: [
+            '"member directory" "manufacturing association" "UK"',
+            '"engineering association" "member directory" "Germany"',
+            '"business directory" "manufacturer" "Switzerland"'
+          ]
+        }
+      ]
+    },
+    {
+      name: "Lead Intake - Australia",
+      targetCount: 90,
+      market: "Australia: Sydney, Melbourne, Brisbane, Perth",
+      offer: "Booking, quote routing, operations dashboard and CRM follow-up automation",
+      tasks: [
+        {
+          sourceStrategyId: "google-manual-business-search",
+          lane: "Australia direct business sites - cleaning/manufacturing/health",
+          priority: "PHASE_0",
+          targetCount: 40,
+          searchPatterns: [
+            '"request a quote" "commercial cleaning" "Melbourne"',
+            '"contact us" "manufacturer" "Sydney"',
+            '"book appointment" "dental clinic" "Brisbane"'
+          ]
+        },
+        {
+          sourceStrategyId: "industry-associations",
+          lane: "Australia associations and business directories",
+          priority: "NEXT",
+          targetCount: 25,
+          searchPatterns: [
+            '"member directory" "contractors association" "Australia"',
+            '"manufacturing association" "member directory" "Australia"',
+            '"business directory" "commercial cleaning" "Sydney"'
+          ]
+        },
+        {
+          sourceStrategyId: "trade-show-exhibitors",
+          lane: "Australia trade exhibitors",
+          priority: "NEXT",
+          targetCount: 25,
+          searchPatterns: [
+            '"exhibitor list" "Australia" "construction"',
+            '"trade show exhibitors" "Melbourne" "manufacturing"',
+            '"exhibitors" "Sydney" "business"'
+          ]
+        }
+      ]
+    },
+    {
+      name: "Lead Intake - India High End",
+      targetCount: 90,
+      market: "India high-end: BKC Mumbai, Cyber City Gurgaon, Bengaluru, Hyderabad",
+      offer: "Premium workflow automation, CRM routing, AI operations dashboard and B2B lead intake systems",
+      tasks: [
+        {
+          sourceStrategyId: "google-manual-business-search",
+          lane: "India premium districts - direct company sites",
+          priority: "PHASE_0",
+          targetCount: 35,
+          searchPatterns: [
+            '"contact us" "clinic" "Bandra Kurla Complex"',
+            '"request quote" "interior design" "Mumbai"',
+            '"Cyber City Gurgaon" "contact us" "company"'
+          ]
+        },
+        {
+          sourceStrategyId: "indiamart-tradeindia",
+          lane: "IndiaMART/TradeIndia suppliers",
+          priority: "LATER",
+          targetCount: 25,
+          searchPatterns: [
+            '"IndiaMART" "manufacturer" "website" "Mumbai"',
+            '"TradeIndia" "exporter" "contact" "Gujarat"',
+            '"industrial supplier" "request quote" "India"'
+          ]
+        },
+        {
+          sourceStrategyId: "trade-show-exhibitors",
+          lane: "India premium trade exhibitors",
+          priority: "NEXT",
+          targetCount: 20,
+          searchPatterns: [
+            '"exhibitor list" "Mumbai" "technology"',
+            '"trade show exhibitors" "Bengaluru" "SaaS"',
+            '"exhibitors" "India" "automation"'
+          ]
+        },
+        {
+          sourceStrategyId: "industry-associations",
+          lane: "India high-trust member lists",
+          priority: "NEXT",
+          targetCount: 10,
+          searchPatterns: [
+            '"CII" "member directory" "India"',
+            '"FICCI" "member directory" "India"',
+            '"NASSCOM" "member" "company"'
+          ]
+        }
+      ]
+    }
+  ];
+}
+
 async function refreshMissionProgress(prisma: PrismaClient, missionId: string, taskId?: string) {
   const [missionCounts, promotedCount] = await Promise.all([
     prisma.sourceCandidateLead.count({ where: { missionId } }),
@@ -790,7 +1322,7 @@ async function refreshMissionProgress(prisma: PrismaClient, missionId: string, t
   await Promise.all(writes);
 }
 
-function scoreCandidate(input: { websiteUrl?: string; email?: string; phone?: string; sourceUrl?: string; painEvidence?: string; recommendedOffer?: string; country?: string; industry?: string }) {
+function scoreCandidate(input: { companyName?: string; websiteUrl?: string; email?: string; phone?: string; sourceUrl?: string; painEvidence?: string; recommendedOffer?: string; country?: string; industry?: string }) {
   let score = 25;
   if (input.websiteUrl) score += 18;
   if (input.email) score += 22;
@@ -800,7 +1332,45 @@ function scoreCandidate(input: { websiteUrl?: string; email?: string; phone?: st
   if (input.recommendedOffer) score += 7;
   if (input.country) score += 4;
   if (input.industry) score += 4;
-  return Math.min(100, score);
+  if (input.email && !isUsableEmail(input.email)) score -= 35;
+  if (input.phone && !isUsablePhone(input.phone)) score -= 20;
+  if (input.companyName && /^(contact us|request a quote|register|member directory|member search|exhibitor list|exhibitor directory)$/i.test(input.companyName.trim())) score -= 22;
+  if (input.sourceUrl && isDirectoryLikeHost(input.sourceUrl)) score -= 8;
+  return Math.max(0, Math.min(100, score));
+}
+
+function isUsableEmail(value?: string | null) {
+  if (!value) return false;
+  const email = value.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
+  if (/(example\.com|test\.com|\.png$|\.jpg$|\.jpeg$|\.gif$|\.webp$|@2x\.|@1x\.|privacy|terms|homecontact)/i.test(email)) return false;
+  if (email.length > 120) return false;
+  return true;
+}
+
+function isUsablePhone(value?: string | null) {
+  if (!value) return false;
+  const phone = value.trim();
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 7 || digits.length > 16) return false;
+  if (/^\d{4}-\d{2}-\d{2}/.test(phone)) return false;
+  if (/^\d{2,3}\.\d{2,6}\s+\d{2,3}\.\d{2,6}$/.test(phone)) return false;
+  return true;
+}
+
+function isClearlyNonBusinessResult(title: string, url: string, snippet?: string) {
+  const host = safeHost(url) || "";
+  const text = `${title} ${snippet || ""}`.toLowerCase();
+  if (/wikipedia|reddit|scribd|pinterest|youtube|facebook|instagram/.test(host)) return true;
+  if (/pdf$|\.cdr\b/.test(url.toLowerCase())) return true;
+  if (/^(register|member search)$/i.test(title.trim())) return true;
+  if (/exhibitor list|member directory|association directory/.test(text) && !/(company|manufacturer|contractor|supplier|clinic|roofing|hvac|facility|construction)/.test(text)) return true;
+  return false;
+}
+
+function isDirectoryLikeHost(url: string) {
+  const host = safeHost(url) || "";
+  return /(10times|yellowpages|yelp|clutch|goodfirms|europages|thomasnet|car-part|a-r-a|practo|trade\.gov|visitorslist)/i.test(host);
 }
 
 function emptyToNull(value?: string | null) {
