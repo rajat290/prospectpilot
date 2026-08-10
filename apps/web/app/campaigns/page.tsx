@@ -31,18 +31,18 @@ export default async function CampaignsPage() {
     <main className="page">
       <section className="page-head">
         <div>
-          <p className="eyebrow">Send campaigns</p>
-          <h1>Prepare, review, and send outreach</h1>
-          <p className="page-subtitle">Choose only trustworthy recipients. Nothing sends until the required review and final confirmation are complete.</p>
+          <p className="eyebrow">Real Revenue Campaign Mode</p>
+          <h1>Prepare real outreach without demo noise</h1>
+          <p className="page-subtitle">Run business-only campaigns with real lead filtering, approval gates, Gmail safety checks, and honest funnel reporting.</p>
         </div>
         <a className="button" href="/communications"><MailCheck size={15} /> Check email workspace</a>
       </section>
 
       <section className="metric-grid campaign-metrics">
-        <Metric label="Eligible now" value={readiness.eligibleCount || 0} icon={<Users size={17} />} />
-        <Metric label="Blocked safely" value={readiness.blockedCount || 0} icon={<ShieldCheck size={17} />} />
+        <Metric label="Real eligible" value={readiness.realRevenueSummary?.realEligible || readiness.eligibleCount || 0} icon={<Users size={17} />} />
+        <Metric label="Real blocked" value={readiness.realRevenueSummary?.realBlocked || readiness.blockedCount || 0} icon={<ShieldCheck size={17} />} />
+        <Metric label="Noise excluded" value={readiness.excludedNoiseCount || readiness.realRevenueSummary?.excludedNoise || 0} icon={<AlertTriangle size={17} />} />
         <Metric label="Real Gmail" value={readiness.connectedMailboxes.length || 0} icon={<MailCheck size={17} />} />
-        <Metric label="Launch records" value={launches.length || 0} icon={<Rocket size={17} />} />
       </section>
 
       <section className="campaign-layout">
@@ -73,9 +73,10 @@ export default async function CampaignsPage() {
           </section>
 
           <section className="panel">
-            <div className="panel-head"><h2>Choose recipients and prepare drafts</h2><span className="panel-count">{Math.min(100, readiness.launchCap || 100)} max</span></div>
+            <div className="panel-head"><h2>Choose real recipients and prepare drafts</h2><span className="panel-count">{Math.min(100, readiness.launchCap || 100)} max</span></div>
             <div className="panel-body">
               <ContextHelp compact title="Preparation does not send email">This creates personalized drafts and places them behind approval. A second typed confirmation is required before delivery begins.</ContextHelp>
+              <RealRevenueSummary readiness={readiness} />
               <CampaignBuilder readiness={readiness} sequences={sequences} />
             </div>
           </section>
@@ -105,8 +106,10 @@ export default async function CampaignsPage() {
 
         <aside className="campaign-side">
           <section className="panel">
-            <div className="panel-head"><h2>Safety policy</h2><ShieldCheck size={16} /></div>
+            <div className="panel-head"><h2>Real revenue policy</h2><ShieldCheck size={16} /></div>
             <div className="panel-body launch-policy">
+              <Policy label="Demo/test leads" value="Excluded" />
+              <Policy label="Real-only metrics" value="Enabled" />
               <Policy label="Human approval" value="Required twice" />
               <Policy label="Launch ceiling" value={`${Math.min(100, readiness.launchCap || 100)} recipients`} />
               <Policy label="Duplicate sends" value="Blocked" />
@@ -118,7 +121,7 @@ export default async function CampaignsPage() {
           </section>
 
           <section className="panel">
-            <div className="panel-head"><h2>Blocked contacts</h2><span className="panel-count">{readiness.blockedCount || 0}</span></div>
+            <div className="panel-head"><h2>Real blocked contacts</h2><span className="panel-count">{readiness.blockedCount || 0}</span></div>
             <div className="panel-body blocked-candidates">
               {readiness.blocked.slice(0, 30).map((candidate: any) => (
                 <div key={candidate.contactId}>
@@ -146,6 +149,29 @@ export default async function CampaignsPage() {
         </aside>
       </section>
     </main>
+  );
+}
+
+function RealRevenueSummary({ readiness }: { readiness: any }) {
+  const summary = readiness.realRevenueSummary || {};
+  return (
+    <div className="real-revenue-summary">
+      <div>
+        <span>Real lane</span>
+        <strong>{summary.real || 0} contacts</strong>
+        <small>{summary.realEligible || 0} eligible · {summary.realBlocked || 0} blocked</small>
+      </div>
+      <div>
+        <span>Demo/test/fixture removed</span>
+        <strong>{summary.excludedNoise || readiness.excludedNoiseCount || 0}</strong>
+        <small>These contacts cannot enter a revenue campaign.</small>
+      </div>
+      <div>
+        <span>Top blocker</span>
+        <strong>{summary.topBlockReasons?.[0]?.count || 0}</strong>
+        <small>{summary.topBlockReasons?.[0]?.reason || "No real blockers in this candidate set."}</small>
+      </div>
+    </div>
   );
 }
 
