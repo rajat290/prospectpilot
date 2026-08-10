@@ -141,6 +141,7 @@ export async function registerPhase9CRoutes(app: FastifyInstance, prisma: Prisma
     const query = z.object({
       sequenceId: z.string().optional(),
       country: z.string().optional(),
+      realRevenueOnly: z.coerce.boolean().default(true),
       limit: z.coerce.number().int().min(1).max(500).default(250)
     }).parse(request.query);
     const sequence = query.sequenceId
@@ -156,6 +157,7 @@ export async function registerPhase9CRoutes(app: FastifyInstance, prisma: Prisma
       include: {
         company: {
           include: {
+            leadSource: { select: { id: true, name: true, url: true, dataOrigin: true } },
             leadScore: true,
             crmItem: true,
             opportunities: { orderBy: { confidence: "desc" }, take: 1 }
@@ -165,20 +167,25 @@ export async function registerPhase9CRoutes(app: FastifyInstance, prisma: Prisma
       }
     });
     const evaluated = await evaluateCampaignContacts(prisma, contacts, sequence?.id);
+    const visible = query.realRevenueOnly ? evaluated.filter((item) => item.origin === "REAL") : evaluated;
     const connectedMailboxes = await prisma.channelConnection.findMany({
       where: { provider: "GMAIL", channel: "EMAIL", status: "CONNECTED" },
       select: { id: true, emailAddress: true, displayName: true, lastSyncedAt: true }
     });
+    const realRevenueSummary = summarizeRealRevenueReadiness(evaluated);
     return {
       codeReady: true,
       providerReady: connectedMailboxes.length > 0,
       sequence,
       connectedMailboxes,
       totalContacts: contacts.length,
-      eligibleCount: evaluated.filter((item) => item.eligible).length,
-      blockedCount: evaluated.filter((item) => !item.eligible).length,
-      eligible: evaluated.filter((item) => item.eligible),
-      blocked: evaluated.filter((item) => !item.eligible),
+      realRevenueOnly: query.realRevenueOnly,
+      realRevenueSummary,
+      eligibleCount: visible.filter((item) => item.eligible).length,
+      blockedCount: visible.filter((item) => !item.eligible).length,
+      excludedNoiseCount: evaluated.filter((item) => item.origin !== "REAL").length,
+      eligible: visible.filter((item) => item.eligible),
+      blocked: visible.filter((item) => !item.eligible),
       launchCap: sequence?.maxLaunchSize ?? 100
     };
   });
@@ -218,7 +225,7 @@ export async function registerPhase9CRoutes(app: FastifyInstance, prisma: Prisma
       prisma.contact.findMany({
         where: { id: { in: body.contactIds } },
         include: {
-          company: { include: { leadScore: true, crmItem: true, opportunities: { orderBy: { confidence: "desc" }, take: 1 } } },
+          company: { include: { leadSource: { select: { id: true, name: true, url: true, dataOrigin: true } }, leadScore: true, crmItem: true, opportunities: { orderBy: { confidence: "desc" }, take: 1 } } },
           communicationPreferences: true
         }
       })
@@ -491,8 +498,13 @@ async function evaluateCampaignContacts(
       id: string;
       name: string;
       country: string | null;
+      websiteUrl?: string | null;
+      email?: string | null;
+      sourceUrl?: string | null;
+      dataOrigin?: string;
       trustStatus: string;
       quarantinedAt: Date | null;
+      leadSource?: { id: string; name: string | null; url: string; dataOrigin: string } | null;
       leadScore: { score: number } | null;
       crmItem: { status: string } | null;
       opportunities: Array<{ recommendedService: string; confidence: number }>;
@@ -547,8 +559,10 @@ async function evaluateCampaignContacts(
   return contacts.map((contact) => {
     const destination = normalizeAddress(contact.normalizedValue || contact.value);
     const domain = extractDomain(destination);
+    const origin = classifyCampaignCompanyOrigin(contact.company, destination);
     const reasons: string[] = [];
     reasons.push(...campaignAddressIssues(destination));
+    if (origin.origin !== "REAL") reasons.push(`Excluded from real revenue mode: ${origin.label}`);
     if ((destinationOwners.get(destination)?.size ?? 0) > 1) reasons.push("The same email address appears on multiple leads");
     if (canonicalContact.get(`${contact.companyId}:${destination}`) !== contact.id) reasons.push("Duplicate normalized email on this lead");
     if (!["VERIFIED", "PROBABLE"].includes(contact.company.trustStatus)) reasons.push(`Lead trust is ${contact.company.trustStatus}`);
@@ -577,6 +591,9 @@ async function evaluateCampaignContacts(
       companyName: contact.company.name,
       destination,
       domain,
+      origin: origin.origin,
+      originLabel: origin.label,
+      originReasons: origin.reasons,
       country: contact.company.country,
       leadScore: contact.company.leadScore?.score ?? 0,
       crmStage: contact.company.crmItem?.status ?? "NEW",
@@ -585,6 +602,81 @@ async function evaluateCampaignContacts(
       reasons
     };
   }).sort((left, right) => right.leadScore - left.leadScore);
+}
+
+function classifyCampaignCompanyOrigin(
+  company: {
+    name: string;
+    websiteUrl?: string | null;
+    email?: string | null;
+    sourceUrl?: string | null;
+    dataOrigin?: string;
+    leadSource?: { name: string | null; url: string; dataOrigin: string } | null;
+  },
+  destination?: string
+) {
+  const persisted = company.dataOrigin && company.dataOrigin !== "UNKNOWN" ? company.dataOrigin : company.leadSource?.dataOrigin;
+  if (persisted && persisted !== "UNKNOWN") {
+    return {
+      origin: persisted,
+      label: persisted === "REAL" ? "Real business data" : `${titleCase(persisted)} data`,
+      reasons: [`Stored origin is ${persisted}`]
+    };
+  }
+  const values = [
+    company.name,
+    company.websiteUrl,
+    company.email,
+    company.sourceUrl,
+    company.leadSource?.name,
+    company.leadSource?.url,
+    destination
+  ].filter(Boolean).map((value) => String(value).toLowerCase());
+  const joined = values.join(" ");
+  const reasons: string[] = [];
+  if (joined.includes("demo.prospectpilot.local") || joined.includes("demo directory")) reasons.push("Demo source detected");
+  if (/\bphase\s*(9|10)|acceptance|fixture|stalled fixture/.test(joined)) reasons.push("Acceptance or fixture naming detected");
+  if (/\btest\b|testing|localhost|prospectpilot\.local/.test(joined)) reasons.push("Test/local marker detected");
+  if (/(^|\.)example($|[\/\s])|\.example\b|@[^@\s]+\.example\b/.test(joined)) reasons.push("Reserved example domain detected");
+  if (reasons.length) {
+    const origin = reasons.some((reason) => reason.includes("Demo")) ? "DEMO" : reasons.some((reason) => reason.includes("fixture") || reason.includes("Acceptance")) ? "FIXTURE" : "TEST";
+    return { origin, label: `${titleCase(origin)} data`, reasons };
+  }
+  return { origin: "REAL", label: "Real business data", reasons: ["No demo, test or fixture marker detected"] };
+}
+
+function summarizeRealRevenueReadiness(items: Array<{ origin: string; eligible: boolean; reasons: string[] }>) {
+  const summary = {
+    real: 0,
+    demo: 0,
+    test: 0,
+    fixture: 0,
+    unknown: 0,
+    realEligible: 0,
+    realBlocked: 0,
+    excludedNoise: 0,
+    topBlockReasons: [] as Array<{ reason: string; count: number }>
+  };
+  const reasonCounts = new Map<string, number>();
+  for (const item of items) {
+    const key = item.origin.toLowerCase() as "real" | "demo" | "test" | "fixture" | "unknown";
+    if (key in summary) summary[key] += 1;
+    if (item.origin === "REAL" && item.eligible) summary.realEligible += 1;
+    if (item.origin === "REAL" && !item.eligible) {
+      summary.realBlocked += 1;
+      for (const reason of item.reasons) reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + 1);
+    }
+    if (item.origin !== "REAL") summary.excludedNoise += 1;
+  }
+  summary.topBlockReasons = [...reasonCounts.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 8)
+    .map(([reason, count]) => ({ reason, count }));
+  return summary;
+}
+
+function titleCase(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 }
 
 async function disconnectMailbox(id: string, prisma: PrismaClient, details: string, type = "DISCONNECTED") {

@@ -72,6 +72,7 @@ export function CampaignBuilder({ readiness, sequences }: { readiness: any; sequ
           <label className={selected.includes(candidate.contactId) ? "campaign-target selected" : "campaign-target"} key={candidate.contactId}>
             <input type="checkbox" checked={selected.includes(candidate.contactId)} onChange={() => toggle(candidate.contactId)} />
             <span><strong>{candidate.companyName}</strong><small>{candidate.destination} · {candidate.country || "Country unknown"}</small></span>
+            {candidate.recommendedOffer ? <em>{candidate.originLabel || "Real business data"} · {candidate.recommendedOffer}</em> : <em>{candidate.originLabel || "Real business data"}</em>}
             <b>{candidate.leadScore}</b>
           </label>
         )) : <div className="empty-state">No verified, unsuppressed and unused email contacts are currently eligible.</div>}

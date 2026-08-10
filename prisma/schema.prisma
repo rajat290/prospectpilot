@@ -312,6 +312,7 @@ model LeadSource {
   name                 String?
   url                  String       @unique
   sourceType           SourceType   @default(DIRECTORY)
+  dataOrigin           DataOrigin   @default(UNKNOWN)
   status               SourceStatus @default(PENDING)
   lastRunAt            DateTime?
   recordCount          Int          @default(0)
@@ -332,6 +333,8 @@ model LeadSource {
   observations CompanySourceObservation[]
   runs         ConnectorRun[]
   jobs         Job[]
+
+  @@index([dataOrigin])
 }
 
 model Company {
@@ -351,6 +354,10 @@ model Company {
   description            String?
   sourceUrl              String?
   connectorId            String?
+  dataOrigin             DataOrigin             @default(UNKNOWN)
+  realRevenueEligible    Boolean                @default(false)
+  realRevenueBlockedAt   DateTime?
+  realRevenueBlockReason String?
   raw                    Json?
   extractionScore        Int                    @default(0)
   identityKey            String?
@@ -401,6 +408,7 @@ model Company {
   @@index([identityKey])
   @@index([trustStatus])
   @@index([websiteUrl])
+  @@index([dataOrigin, realRevenueEligible])
 }
 
 model Website {
@@ -1361,6 +1369,79 @@ model DailyReport {
   createdAt      DateTime @default(now())
 }
 
+model SourceCollectionMission {
+  id             String                         @id @default(cuid())
+  name           String
+  status         SourceCollectionMissionStatus @default(ACTIVE)
+  targetCount    Int                            @default(100)
+  collectedCount Int                            @default(0)
+  promotedCount  Int                            @default(0)
+  market         String?
+  offer          String?
+  notes          String?
+  createdAt      DateTime                       @default(now())
+  updatedAt      DateTime                       @updatedAt
+
+  tasks      SourceCollectionTask[]
+  candidates SourceCandidateLead[]
+
+  @@index([status, createdAt])
+}
+
+model SourceCollectionTask {
+  id               String               @id @default(cuid())
+  missionId        String
+  sourceStrategyId String
+  lane             String
+  status           CollectionTaskStatus @default(OPEN)
+  priority         String
+  targetCount      Int
+  collectedCount   Int                  @default(0)
+  promotedCount    Int                  @default(0)
+  searchPatterns   String[]
+  instructions     String               @db.Text
+  nextAction       String
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  mission    SourceCollectionMission @relation(fields: [missionId], references: [id])
+  candidates SourceCandidateLead[]
+
+  @@index([missionId, status])
+  @@index([sourceStrategyId])
+}
+
+model SourceCandidateLead {
+  id             String                @id @default(cuid())
+  missionId      String
+  taskId         String?
+  companyId      String?
+  status         CandidateLeadStatus   @default(CAPTURED)
+  companyName    String
+  websiteUrl     String?
+  email          String?
+  phone          String?
+  country        String?
+  industry       String?
+  sourceUrl      String?
+  painEvidence   String?
+  recommendedOffer String?
+  notes          String?
+  qualityScore   Int                   @default(0)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  promotedAt     DateTime?
+
+  mission SourceCollectionMission @relation(fields: [missionId], references: [id])
+  task    SourceCollectionTask?   @relation(fields: [taskId], references: [id])
+
+  @@index([missionId, status])
+  @@index([taskId, status])
+  @@index([companyId])
+  @@index([email])
+  @@index([websiteUrl])
+}
+
 enum SourceType {
   DIRECTORY
   ASSOCIATION
@@ -1370,12 +1451,42 @@ enum SourceType {
   OTHER
 }
 
+enum DataOrigin {
+  UNKNOWN
+  REAL
+  DEMO
+  TEST
+  FIXTURE
+}
+
 enum SourceStatus {
   PENDING
   CRAWLING
   ENRICHING
   COMPLETE
   FAILED
+}
+
+enum SourceCollectionMissionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum CollectionTaskStatus {
+  OPEN
+  IN_PROGRESS
+  BLOCKED
+  DONE
+}
+
+enum CandidateLeadStatus {
+  CAPTURED
+  NEEDS_RESEARCH
+  QUALIFIED
+  PROMOTED
+  REJECTED
 }
 
 enum CompanyStatus {
